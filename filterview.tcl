@@ -4,29 +4,53 @@ set framey1 30
 set framex2 300
 set framey2 300
 
-set filterx 150
-set filtery 150
-set filterwidth 100
-set filterheight 150
+set filterx1 100
+set filtery1 150
+set filterx2 200
+set filtery2 150
+set filtercenter 150
+set filtersideflag 1
 
-proc startmovefilterbox {x y} {.c addtag movefilterbox closest $x $y}
-proc movefilterbox {x} {
-    set ::filterwidth [expr abs(($::framex2/2) - $x)]
-    puts stderr "filterwidth $::filterwidth"
-    .c coords movefilterbox [expr ($::filterwidth/2)-$::filterx] $::framey1 \
-         [expr ($::filterwidth/2)+$::filterx] [expr $::framey2+$::framey1]
+proc startmovefilterbox {x y} {
+    .c addtag movefilterbox closest $x $y
+    if {$x < $::filtercenter} {
+        set ::filtersideflag 1
+    } else {
+        set ::filtersideflag 2
+    }
+}
+proc movefilterbox {x w} {
+    puts stderr "movefilterbox $w"
+    if {$::filtersideflag == 1} {
+        if {$x < $::framex1} {
+            set ::filterx1 $::framey1
+        } elseif {$x < [expr $::filtercenter]} {
+            set ::filterx1 $x
+        } elseif {$x < $::framey2} {
+            set ::filterx2 $x
+        } else {
+            set ::filterx2 $::framey2
+        }
+    } else {
+    }
+    .c coords movefilterbox $::filterx1 $::framey1 \
+         $::filterx2 $::framey2
 }
 
+# TODO filter out selections by tags using withtag
+# TODO there is two separate modes: 
+#     1) click and move filtercenter and gain (y).
+#     2) click on edges of band to adjust bandwidth/Q
 proc startmovemey {x y} {.c addtag movemey closest $x $y}
 proc movemey {y} {
     if {[expr $y < $::framey1]} {
-        set ::filterheight $::framey1
+        set ::filtery2 $::framey1
     } elseif {[expr $y > $::framey2]} {
-        set ::filterheight $::framey2
+        set ::filtery2 $::framey2
     } else {
-        set ::filterheight $y
+        set ::filtery2 $y
     }
-    .c coords movemey $::framex1 $::filterheight $::framex2 $::filterheight
+    .c coords movemey $::framex1 $::filtery2 $::framex2 $::filtery2
 }
 
 proc stopmoveme {} {
@@ -41,16 +65,16 @@ pack .c -side left -expand 1 -fill both
 .c create rectangle $framex1 $framey1 $framex2 $framey2 \
     -tags filterframe -outline gray -fill "#eeeeff"
 
-.c create rectangle $filterx $framey1 [expr $filterwidth+$filterx] $framey2 \
+.c create rectangle $filterx1 $framey1 $filterx2 $framey2 \
     -tags [list filterbox lines] \
     -outline red -activewidth 2
 
-.c create line $framex1 $filterheight $::framex2 $filterheight \
+.c create line $framex1 $filtery2 $::framex2 $filtery2 \
     -tags [list horizontal lines] \
     -activewidth 2
 
 .c bind filterbox <ButtonPress-1> "startmovefilterbox %x %y"
-.c bind filterbox <Motion> "movefilterbox %x"
+.c bind filterbox <Motion> "movefilterbox %x %W"
 .c bind horizontal <ButtonPress-1> "startmovemey %x %y"
 .c bind horizontal <Motion> "movemey %y"
 .c bind lines <ButtonRelease-1> stopmoveme
