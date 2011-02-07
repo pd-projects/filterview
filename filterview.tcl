@@ -1,3 +1,8 @@
+#!/bin/sh
+# This line continues for Tcl, but is a single line for 'sh' \
+    exec wish "$0" -- ${1+"$@"}
+
+package require Tk
 
 catch {console show}
 
