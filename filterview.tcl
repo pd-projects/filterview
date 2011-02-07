@@ -1,9 +1,5 @@
 
 catch {console show}
-# TODO filter out selections by tags using withtag
-# TODO there is two separate modes: 
-#     1) click and move filtercenter and gain (y).
-#     2) click on edges of band to adjust bandwidth/Q
 
 wm geometry . +500+40
 
@@ -12,12 +8,15 @@ set framey1 30
 set framex2 300
 set framey2 300
 
-set filterx1 100
-set filterx2 200
+set filterx1 120
+set filterx2 180
+set filterlimit1 100
+set filterlimit2 200
+
 set filtergain 150
-set filtercenter 150
-set filterwidth 50
-set filtersideflag 1
+set filterwidth [expr $::filterx2 - $::filterx1]
+set filtercenter [expr $::filterx1 + ($::filterwidth/2)]
+set lessthan_filtercenter 1
 
 set previousx 0
 set previousy 0
@@ -63,11 +62,6 @@ proc start_movefilter {mycanvas x y} {
     puts stderr "start_movefilter $mycanvas $x $y"
     set ::previousx $x
     set ::previousy $y
-    if {$x < $::filtercenter} {
-        set ::filtersideflag 1
-    } else {
-        set ::filtersideflag 2
-    }
     $mycanvas configure -cursor fleur
     $mycanvas itemconfigure filterlines -width 2
     $mycanvas bind filtergraph <Motion> "movefilter %W %x %y"
@@ -82,33 +76,75 @@ proc movefilter {mycanvas x y} {
 # change the filter
 
 proc start_changebandwidth {mycanvas x y} {
+    puts stderr "start_changebandwidth $mycanvas $x $y"
+    set ::previousx $x
+    set ::previousy $y
+    if {$x < $::filtercenter} {
+        set ::lessthan_filtercenter 1
+    } else {
+        set ::lessthan_filtercenter 0
+    }
+    $mycanvas bind filterband <Leave> {}
+    $mycanvas bind filterband <Enter> {}
+    $mycanvas bind filterband <Motion> {}
+    $mycanvas configure -cursor sb_h_double_arrow
     $mycanvas bind filtergraph <Motion> {changebandwidth %W %x %y}
 }
 
-proc stop_changebandwidth {mycanvas} {
-}
-
 proc changebandwidth {mycanvas x y} {
-    if {$::filtersideflag == 1} {
-        if {$x < $::framex1} {
-            set ::filterx1 $::framey1
-        } elseif {$x < [expr $::filtercenter]} {
-            set ::filterx1 $x
-        } elseif {$x < $::framey2} {
-            set ::filterx2 $x
+    puts stderr "changebandwidth $mycanvas $x $y"
+    set dx [expr $x - $::previousx]
+    if {$::lessthan_filtercenter} {
+        if {$x < $::filterlimit1} {
+            set ::filterx1 $::filterlimit1
+            set ::filterx2 [expr $::filterx1 + $::filterwidth] 
+        } elseif {$x > $::filtercenter} {
+            set ::filterx1 $::filtercenter
+            set ::filterx2 $::filtercenter
         } else {
-            set ::filterx2 $::framey2
+            set ::filterx1 $x
+            set ::filterx2 [expr $::filterx2 - $dx]
         }
     } else {
+        if {$x > $::filterlimit2} {
+            set ::filterx2 $::filterlimit2
+            set ::filterx1 [expr $::filterx2 - $::filterwidth] 
+        } elseif {$x < $::filtercenter} {
+            set ::filterx1 $::filtercenter
+            set ::filterx2 $::filtercenter
+        } else {
+            set ::filterx2 $x
+            set ::filterx1 [expr $::filterx1 - $dx]
+        }
+    }
+#    puts stderr "$mycanvas coords filterband $::filterx1 $::framey1 $::filterx2 $::framey2"
+    $mycanvas coords filterband $::filterx1 $::framey1 $::filterx2 $::framey2
+    set ::previousx $x
+    set ::filterwidth [expr $::filterx2 - $::filterx1]
+    set ::filtercenter [expr $::filterx1 + ($::filterwidth/2)]
+    movegain $mycanvas $y
+}
+
+proc filterband_cursor {mycanvas x} {
+    puts stderr "filterband_cursor $mycanvas $x"
+    if {$x < $::filtercenter} {
+        $mycanvas configure -cursor left_side
+    } else {
+        $mycanvas configure -cursor right_side
     }
 }
 
 proc enterband {mycanvas} {
-    $mycanvas configure -cursor center_ptr
+    puts stderr "enterband $mycanvas"
+    $mycanvas bind filtergraph <ButtonPress-1> {}
+    $mycanvas bind filterband <Motion> {filterband_cursor %W %x}
     $mycanvas itemconfigure filterband -width 2
 }
 
 proc leaveband {mycanvas} {
+    puts stderr "leaveband $mycanvas"
+    $mycanvas bind filtergraph <ButtonPress-1> {start_movefilter %W %x %y}
+    $mycanvas bind filterband <Motion> {}
     $mycanvas configure -cursor arrow
     $mycanvas itemconfigure filterband -width 1
 }
@@ -116,9 +152,12 @@ proc leaveband {mycanvas} {
 #------------------------------------------------------------------------------#
 
 proc stop_editing {mycanvas} {
+    puts stderr "stop_editing $mycanvas"
     $mycanvas bind filtergraph <Motion> {}
     $mycanvas itemconfigure filterlines -width 1
     $mycanvas configure -cursor arrow
+    $mycanvas bind filterband <Enter> {enterband %W}
+    $mycanvas bind filterband <Leave> {leaveband %W}
 }
 
 #------------------------------------------------------------------------------#
@@ -137,7 +176,7 @@ pack .c -side left -expand 1 -fill both
     -outline red -fill "#ebe8e8" \
     -tags [list filtergraph filterlines filterband]
 
-# midpoint
+# zero line/equator
 set midpoint [expr (($::framey2 - $::framey1) / 2) + $::framey1]
 .c create line $::framex1 $midpoint $::framex2 $midpoint \
     -fill $markercolor \
@@ -147,10 +186,11 @@ set midpoint [expr (($::framey2 - $::framey1) / 2) + $::framey1]
 .c create line $::framex1 $::filtergain $::framex2 $::filtergain \
     -tags [list filtergraph filterlines filtergain]
 
+# filtergraph binding is also changed by enter/leave on the band
 .c bind filtergraph <ButtonPress-1> {start_movefilter %W %x %y}
 .c bind filtergraph <ButtonRelease-1> {stop_editing %W}
-
 .c bind filterband <ButtonPress-1> {start_changebandwidth %W %x %y}
 .c bind filterband <ButtonRelease-1> {stop_editing %W}
-.c bind filterband <Enter> {enterband %W}
-.c bind filterband <Leave> {leaveband %W}
+
+# run to set things up
+stop_editing .c
