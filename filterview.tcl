@@ -8,16 +8,20 @@ catch {console show}
 
 wm geometry . +500+40
 
-set framex1 30
-set framey1 30
-set framex2 300
-set framey2 300
-set midpoint [expr (($::framey2 - $::framey1) / 2) + $::framey1]
+set tcl_precision 6  ;# http://wiki.tcl.tk/8401
 
-set filterx1 120
-set filterx2 180
-set filterlimit1 100
-set filterlimit2 200
+set framex1 30.0
+set framey1 30.0
+set framex2 300.0
+set framey2 300.0
+set midpoint [expr (($::framey2 - $::framey1) / 2) + $::framey1]
+set hzperpixel [expr 20000.0 / ($::framex2 - $::framex1)]
+set magnatudeperpixel [expr 0.5 / ($::framey2 - $::framey1)]
+
+set filterx1 120.0
+set filterx2 180.0
+set filterlimit1 100.0
+set filterlimit2 200.0
 
 set filtergain 150
 set filterwidth [expr $::filterx2 - $::filterx1]
@@ -27,9 +31,8 @@ set lessthan_filtercenter 1
 set previousx 0
 set previousy 0
 
-set tcl_precision 6  ;# http://wiki.tcl.tk/8401
 set pi [expr acos(-1)]
-set 2pi [expr 2*$pi]
+set 2pi [expr 2.0*$pi]
 set LN2 0.69314718
 set samplerate 44100
 
@@ -45,10 +48,11 @@ set markercolor "#bbbbcc"
 
 #------------------------------------------------------------------------------#
 proc generate_plotpoints {} {
-    set framewidth [expr $::framex2 - $::framex1]
-    for {set x $::framex1} {$x <= $::framex2} {incr x [expr $framewidth/10]} {
+    set framewidth [expr int($::framex2 - $::framex1)]
+    puts stderr "generate_plotpoints $framewidth"
+    for {set x [expr int($::framex1)]} {$x <= $::framex2} {incr x [expr $framewidth/10]} {
         lappend plotpoints $x
-        lappend plotpoints [calc_magnatude [expr $x * 10]]
+        lappend plotpoints [calc_magnatude [expr ($x - $::framex1) * $::hzperpixel]]
     }
 #    puts stderr "plotpoints $plotpoints"
     return $plotpoints
@@ -83,7 +87,8 @@ proc calc_magnatude {f} {
 #    set phase [expr atan2($i, $r)]
 
 #    return [list $magnatude $phase]
-    return [expr ($magnatude - 1) * 100 + $::framey1]
+    puts stderr "MAGNATUDE $magnatude"
+    return [expr ($magnatude - 0.75) / $::magnatudeperpixel + $::framey1]
 }
 
 #------------------------------------------------------------------------------#
@@ -94,18 +99,24 @@ proc e_omega {f r} {
 }
 
 proc e_alpha {bw omega} {
-    return [expr sin($omega)*sinh($::LN2/2 * $bw * $omega/sin($omega))]
+    return [expr sin($omega)*sinh($::LN2/2.0 * $bw * $omega/sin($omega))]
 }
 
-proc lowpass {f bw} {
+# lowpass
+#    f0 = frequency in Hz
+#    bw = bandwidth where 1 is an octave
+proc lowpass {f0pix bwpix} {
+    set f [expr ($f0pix - $::framex1) * $::hzperpixel]
+    set bw [expr $bwpix / 100.0]
+    puts stderr "lowpass: $f $bw $::filtercenter $::filterwidth"
     set omega [e_omega $f $::samplerate]
-    set alpha [e_alpha [expr $bw*0.01] $omega]
-    set b1 [expr 1 - cos($omega)]
-    set b0 [expr $b1/2]
+    set alpha [e_alpha [expr $bw] $omega]
+    set b1 [expr 1.0 - cos($omega)]
+    set b0 [expr $b1/2.0]
     set b2 $b0
-    set a0 [expr 1 + $alpha]
-    set a1 [expr -2*cos($omega)]
-    set a2 [expr 1 - $alpha]
+    set a0 [expr 1.0 + $alpha]
+    set a1 [expr -2.0*cos($omega)]
+    set a2 [expr 1.0 - $alpha]
 
 # get this from ggee/filters
 #    if {!check_stability(-a1/a0,-a2/a0,b0/a0,b1/a0,b2/a0)} {
@@ -119,8 +130,7 @@ proc lowpass {f bw} {
     set ::a2 [expr $b0/$a0]
     set ::b1 [expr $b1/$a0]
     set ::b2 [expr $b2/$a0]
-    puts stderr "filter: $::filtercenter $::filterwidth"
-    puts stderr "\t\tBIQUAD lowpass $::a0 $::a1 $::a2 $::b1 $::b2"
+#    puts stderr "\t\tBIQUAD lowpass $::a0 $::a1 $::a2 $::b1 $::b2"
 }
 
 
@@ -176,7 +186,7 @@ proc start_movefilter {mycanvas x y} {
 proc movefilter {mycanvas x y} {
     moveband $mycanvas $x
     movegain $mycanvas $y
-    lowpass [expr $::filtercenter * 10] $::filterwidth
+    lowpass $::filtercenter $::filterwidth
     drawgraph $mycanvas
 }
 
@@ -239,7 +249,7 @@ proc changebandwidth {mycanvas x y} {
     set ::previousx $x
 
     movegain $mycanvas $y
-    lowpass [expr $::filtercenter * 10] $::filterwidth
+    lowpass $::filtercenter $::filterwidth
     drawgraph $mycanvas
 }
 
