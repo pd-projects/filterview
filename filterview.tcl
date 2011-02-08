@@ -1,12 +1,10 @@
 #!/bin/sh
 # This line continues for Tcl, but is a single line for 'sh' \
-    exec wish "$0" -- ${1+"$@"}
+    exec /usr/bin/wish "$0" -- ${1+"$@"}
+
+#catch {console show}
 
 package require Tk
-
-catch {console show}
-
-wm geometry . +500+40
 
 set tcl_precision 6  ;# http://wiki.tcl.tk/8401
 
@@ -110,7 +108,8 @@ proc lowpass {f0pix bwpix} {
     set bw [expr $bwpix / 100.0]
     puts stderr "lowpass: $f $bw $::filtercenter $::filterwidth"
     set omega [e_omega $f $::samplerate]
-    set alpha [e_alpha [expr $bw] $omega]
+#    set alpha [e_alpha [expr $bw] $omega]
+    set alpha [expr sin($omega)/(2.0*$bw)]
     set b1 [expr 1.0 - cos($omega)]
     set b0 [expr $b1/2.0]
     set b2 $b0
@@ -289,54 +288,58 @@ proc stop_editing {mycanvas} {
 
 #------------------------------------------------------------------------------#
 
-wm geometry . 400x400
+proc filterview_new {tkcanvas} {
+    puts stderr "filterview_new $tkcanvas"
+    # background
+    $tkcanvas create rectangle $::framex1 $::framey1 $::framex2 $::framey2 \
+        -outline $::markercolor -fill "#eeeeff" \
+        -tags [list filtergraph]
+
+    # magnatude response graph fill
+    $tkcanvas create polygon $::framex1 $::midpoint $::framex2 $::midpoint \
+        $::framex2 $::framey2 $::framex1 $::framey2 \
+        -fill "#e7f6d8" \
+        -tags [list filtergraph response responsefill]
+
+    # magnatude response graph line
+    $tkcanvas create line $::framex1 $::midpoint $::framex2 $::midpoint \
+        -fill "#B7C6A8" -width 3 \
+        -tags [list filtergraph response responseline]
+
+    # zero line/equator
+    $tkcanvas create line $::framex1 $::midpoint $::framex2 $::midpoint \
+        -fill $::markercolor \
+        -tags [list filtergraph]
+
+    # bandwidth box left side
+    $tkcanvas create line $::filterx1 $::framey1 $::filterx1 $::framey2 \
+        -fill red \
+        -tags [list filtergraph filterlines filterband filterbandleft bandedges]
+    # bandwidth box center
+    $tkcanvas create line $::filtercenter $::framey1 $::filtercenter $::framey2 \
+        -fill "#ffbbbb" \
+        -tags [list filtergraph filterlines filterband filterbandcenter]
+    # bandwidth box right side
+    $tkcanvas create line $::filterx2 $::framey1 $::filterx2 $::framey2 \
+        -fill red \
+        -tags [list filtergraph filterlines filterband filterbandright bandedges]
+
+    # gain line
+    $tkcanvas create line $::framex1 $::filtergain $::framex2 $::filtergain \
+        -fill red \
+        -tags [list filtergraph filterlines filtergain]
+
+    # filtergraph binding is also changed by enter/leave on the band
+    $tkcanvas bind filtergraph <ButtonPress-1> {start_movefilter %W %x %y}
+    $tkcanvas bind filtergraph <ButtonRelease-1> {stop_editing %W}
+    $tkcanvas bind bandedges <ButtonPress-1> {start_changebandwidth %W %x %y}
+    $tkcanvas bind bandedges <ButtonRelease-1> {stop_editing %W}
+
+    # run to set things up
+    stop_editing $tkcanvas
+}
+
+wm geometry . 400x400+500+40
 canvas .c
 pack .c -side left -expand 1 -fill both
-
-# background
-.c create rectangle $framex1 $framey1 $framex2 $framey2 \
-    -outline $markercolor -fill "#eeeeff" \
-    -tags [list filtergraph]
-
-# magnatude response graph fill
-.c create polygon $::framex1 $midpoint $::framex2 $midpoint \
-    $::framex2 $::framey2 $::framex1 $::framey2 \
-    -fill "#e7f6d8" \
-    -tags [list filtergraph response responsefill]
-
-# magnatude response graph line
-.c create line $::framex1 $midpoint $::framex2 $midpoint \
-    -fill "#B7C6A8" -width 3 \
-    -tags [list filtergraph response responseline]
-
-# zero line/equator
-.c create line $::framex1 $midpoint $::framex2 $midpoint \
-    -fill $markercolor \
-    -tags [list filtergraph]
-
-# bandwidth box left side
-.c create line $filterx1 $framey1 $filterx1 $framey2 \
-    -fill red \
-    -tags [list filtergraph filterlines filterband filterbandleft bandedges]
-# bandwidth box center
-.c create line $filtercenter $framey1 $filtercenter $framey2 \
-    -fill "#ffbbbb" \
-    -tags [list filtergraph filterlines filterband filterbandcenter]
-# bandwidth box right side
-.c create line $filterx2 $framey1 $filterx2 $framey2 \
-    -fill red \
-    -tags [list filtergraph filterlines filterband filterbandright bandedges]
-
-# gain line
-.c create line $::framex1 $::filtergain $::framex2 $::filtergain \
-    -fill red \
-    -tags [list filtergraph filterlines filtergain]
-
-# filtergraph binding is also changed by enter/leave on the band
-.c bind filtergraph <ButtonPress-1> {start_movefilter %W %x %y}
-.c bind filtergraph <ButtonRelease-1> {stop_editing %W}
-.c bind bandedges <ButtonPress-1> {start_changebandwidth %W %x %y}
-.c bind bandedges <ButtonRelease-1> {stop_editing %W}
-
-# run to set things up
-stop_editing .c
+filterview_new .c
