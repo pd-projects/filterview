@@ -4,6 +4,21 @@
 
 #catch {console show}
 
+
+#------------- .mmb edits ----------------
+#
+# lines 43-47: changed names of coefficient variables (they were incorrect and led to confusion). I updated this
+#		throughout (I think).
+# line 54: added proc mtof for intuitive log frequency scaling.
+# lines 64-65: converts x axis to midi notes, then frequencies, then radians. Before, the conversion to radians was not
+#		done, which is why the response was so jagged
+# proc calc_magnatude: I reworked the math here a pretty good amount. It now gives the correct magnitudes as well
+#		as phases. The magnitudes are also converted to dB.
+# line 134: I added a proc e_alphaq. I just did this to see the response without resonance (q = .7071) to be sure it 
+#		wasn't what was causing problems. Might be useful later.
+# lines 146-147: Frequency input for calculating coefficients is a again log-scaled with mtof.
+#
+#-----------------------------------------
 package require Tk
 
 set tcl_precision 6  ;# http://wiki.tcl.tk/8401
@@ -35,9 +50,9 @@ set LN2 0.69314718
 set samplerate 44100
 
 # coefficients for [biquad~]
-set a0 0
 set a1 0
-set a2 1
+set a2 0
+set b0 1
 set b1 0
 set b2 0
 
@@ -45,12 +60,17 @@ set b2 0
 set markercolor "#bbbbcc"
 
 #------------------------------------------------------------------------------#
+proc mtof {nn} {
+	return [expr pow(2.0, ($nn-45)/12.0)*110.0]
+}
+
 proc generate_plotpoints {} {
     set framewidth [expr int($::framex2 - $::framex1)]
     puts stderr "generate_plotpoints $framewidth"
-    for {set x [expr int($::framex1)]} {$x <= $::framex2} {incr x [expr $framewidth/10]} {
+    for {set x [expr int($::framex1)]} {$x <= $::framex2} {incr x [expr $framewidth/40]} {
         lappend plotpoints $x
-        lappend plotpoints [calc_magnatude [expr ($x - $::framex1) * $::hzperpixel]]
+        set nn [expr ($x - $::framex1)/$framewidth*120+16.766]
+        lappend plotpoints [calc_magnatude [expr $::2pi * [mtof $nn] / $::samplerate]]
     }
 #    puts stderr "plotpoints $plotpoints"
     return $plotpoints
@@ -67,26 +87,40 @@ proc drawgraph {mycanvas} {
 # calculate magnatude and phase of a given frequency for a set of
 # biquad coefficients.  f is input freq in radians
 proc calc_magnatude {f} {
-    set x1 [expr cos($f)]
-    set x2 [expr cos(2*$f)]
-    set y1 [expr sin($f)]
-    set y2 [expr sin(2*$f)]
+    set x1 [expr cos(-1.0*$f)]
+    set x2 [expr cos(-2.0*$f)]
+    set y1 [expr sin(-1.0*$f)]
+    set y2 [expr sin(-2.0*$f)]
 
-    set A [expr $::a0 + $::a1*$x1 + $::a2*$x2]
-    set B [expr $::a1*$y1 + $::a2*$y2]
-    set C [expr 1 + $::b1*$x1 + $::b2*$x2]
-    set D [expr $::b1*$y1 + $::b2*$y2]
-    set ccdd [expr $C*$C + $D*$D]
+    set A [expr $::b0 + $::b1*$x1 + $::b2*$x2]
+    set B [expr $::b1*$y1 + $::b2*$y2]
+    set C [expr 1 - $::a1*$x1 - $::a2*$x2]
+    set D [expr 0 - $::a1*$y1 - $::a2*$y2]
+	set numermag [expr sqrt($A*$A + $B*$B)]
+	set numerarg [expr atan2($B, $A)]
+	set denommag [expr sqrt($C*$C + $D*$D)]
+	set denomarg [expr atan2($D, $C)]
 
-    set r [expr ($A*$C + $B*$D) / ($ccdd)]
-    set i [expr ($A*$D - $B*$C) / ($ccdd)]
-    
-    set magnatude [expr sqrt($r*$r + $i*$i)]
-#    set phase [expr atan2($i, $r)]
+	set magnatude [expr $numermag/$denommag]
+	set phase [expr $numerarg-$denomarg]
+	
+	set fHz [expr $f * $::samplerate / $::2pi]
 
-#    return [list $magnatude $phase]
-    puts stderr "MAGNATUDE $magnatude"
-    return [expr ($magnatude - 0.75) / $::magnatudeperpixel + $::framey1]
+	# convert to dB scale
+	set logmagnitude [expr 20.0*log($magnatude)/log(10)]
+	puts stderr "MAGNATUDE at $fHz Hz ($f radians): $magnatude LOG: $logmagnitude"
+	# clip
+	if {$logmagnitude > 25.0} {
+		set logmagnitude 25.0
+	} elseif {$logmagnitude < -25.0} {
+		set logmagnitude -25.0
+	}
+	# scale to pixel range
+	set logmagnitude [expr $logmagnitude/25.0 * ($::framey2 - $::framey1)/2.0]
+	# invert and offset
+	set logmagnitude [expr -1.0 * $logmagnitude + ($::framey2 - $::framey1)/2.0 + $::framey1]
+
+	return $logmagnitude
 }
 
 #------------------------------------------------------------------------------#
@@ -100,16 +134,21 @@ proc e_alpha {bw omega} {
     return [expr sin($omega)*sinh($::LN2/2.0 * $bw * $omega/sin($omega))]
 }
 
+# just for testing
+proc e_alphaq {q omega} {
+	return [expr sin($omega)/(2*$q)]
+}
+
 # lowpass
 #    f0 = frequency in Hz
 #    bw = bandwidth where 1 is an octave
 proc lowpass {f0pix bwpix} {
-    set f [expr ($f0pix - $::framex1) * $::hzperpixel]
+	set nn [expr ($f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766]
+    set f [mtof $nn]
     set bw [expr $bwpix / 100.0]
     puts stderr "lowpass: $f $bw $::filtercenter $::filterwidth"
     set omega [e_omega $f $::samplerate]
-#    set alpha [e_alpha [expr $bw] $omega]
-    set alpha [expr sin($omega)/(2.0*$bw)]
+    set alpha [e_alpha $bw $omega]
     set b1 [expr 1.0 - cos($omega)]
     set b0 [expr $b1/2.0]
     set b2 $b0
@@ -124,12 +163,12 @@ proc lowpass {f0pix bwpix} {
 #        set b0 1; set b1 0; set b2 0
 #    }
 
-    set ::a0 [expr -$a1/$a0]
-    set ::a1 [expr -$a2/$a0]
-    set ::a2 [expr $b0/$a0]
+    set ::a1 [expr -$a1/$a0]
+    set ::a2 [expr -$a2/$a0]
+    set ::b0 [expr $b0/$a0]
     set ::b1 [expr $b1/$a0]
     set ::b2 [expr $b2/$a0]
-#    puts stderr "\t\tBIQUAD lowpass $::a0 $::a1 $::a2 $::b1 $::b2"
+    puts stderr "\t\tBIQUAD lowpass $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
 
