@@ -59,9 +59,12 @@ set b2 0
 # colors
 set markercolor "#bbbbcc"
 
+# allpass, bandpass, highpass, highshelf, lowshelf, notch, peaking, resonant
+set currentfiltertype "notch"
+
 #------------------------------------------------------------------------------#
 proc mtof {nn} {
-	return [expr pow(2.0, ($nn-45)/12.0)*110.0]
+    return [expr pow(2.0, ($nn-45)/12.0)*110.0]
 }
 
 proc generate_plotpoints {} {
@@ -96,31 +99,43 @@ proc calc_magnatude {f} {
     set B [expr $::b1*$y1 + $::b2*$y2]
     set C [expr 1 - $::a1*$x1 - $::a2*$x2]
     set D [expr 0 - $::a1*$y1 - $::a2*$y2]
-	set numermag [expr sqrt($A*$A + $B*$B)]
-	set numerarg [expr atan2($B, $A)]
-	set denommag [expr sqrt($C*$C + $D*$D)]
-	set denomarg [expr atan2($D, $C)]
+    set numermag [expr sqrt($A*$A + $B*$B)]
+    set numerarg [expr atan2($B, $A)]
+    set denommag [expr sqrt($C*$C + $D*$D)]
+    set denomarg [expr atan2($D, $C)]
 
-	set magnatude [expr $numermag/$denommag]
-	set phase [expr $numerarg-$denomarg]
-	
-	set fHz [expr $f * $::samplerate / $::2pi]
+    set magnatude [expr $numermag/$denommag]
+    set phase [expr $numerarg-$denomarg]
+    
+    set fHz [expr $f * $::samplerate / $::2pi]
 
-	# convert to dB scale
-	set logmagnitude [expr 20.0*log($magnatude)/log(10)]
-	puts stderr "MAGNATUDE at $fHz Hz ($f radians): $magnatude LOG: $logmagnitude"
-	# clip
-	if {$logmagnitude > 25.0} {
-		set logmagnitude 25.0
-	} elseif {$logmagnitude < -25.0} {
-		set logmagnitude -25.0
-	}
-	# scale to pixel range
-	set logmagnitude [expr $logmagnitude/25.0 * ($::framey2 - $::framey1)/2.0]
-	# invert and offset
-	set logmagnitude [expr -1.0 * $logmagnitude + ($::framey2 - $::framey1)/2.0 + $::framey1]
+    # convert magnitude to dB scale
+    set logmagnitude [expr 20.0*log($magnatude)/log(10)]
+    puts stderr "MAGNATUDE at $fHz Hz ($f radians): $magnatude dB: $logmagnitude"
+    # clip
+    if {$logmagnitude > 25.0} {
+        set logmagnitude 25.0
+    } elseif {$logmagnitude < -25.0} {
+        set logmagnitude -25.0
+    }
+    # scale to pixel range
+    set halfframeheight [expr ($::framey2 - $::framey1)/2.0]
+    set logmagnitude [expr $logmagnitude/25.0 * $halfframeheight]
+    # invert and offset
+    set logmagnitude [expr -1.0 * $logmagnitude + $halfframeheight + $::framey1]
 
-	return $logmagnitude
+    #	puts stderr "PHASE at $fHz Hz ($f radians): $phase"
+    # wrap phase
+    if {$phase > $::pi} {
+        set phase [expr $phase - $::2pi]
+    } elseif {$phase < [expr -$::pi]} {
+        set phase [expr $phase + $::2pi]
+    }
+    # scale phase values to pixels
+    set scaledphase [expr $halfframeheight*(-$phase/($::pi)) + $halfframeheight + $::framey1]
+    
+    return $logmagnitude
+#    return $scaledphase
 }
 
 #------------------------------------------------------------------------------#
@@ -136,17 +151,19 @@ proc e_alpha {bw omega} {
 
 # just for testing
 proc e_alphaq {q omega} {
-	return [expr sin($omega)/(2*$q)]
+    return [expr sin($omega)/(2*$q)]
 }
 
 # lowpass
 #    f0 = frequency in Hz
 #    bw = bandwidth where 1 is an octave
 proc lowpass {f0pix bwpix} {
-	set nn [expr ($f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766]
+    set nn [expr ($f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766]
+    set nn2 [expr ($bwpix+$f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766] 
     set f [mtof $nn]
-    set bw [expr $bwpix / 100.0]
-    puts stderr "lowpass: $f $bw $::filtercenter $::filterwidth"
+    set bwf [mtof $nn2]
+    set bw [expr ($bwf/$f)-1]
+#    puts stderr "lowpass: $f $bw $::filtercenter $::filterwidth"
     set omega [e_omega $f $::samplerate]
     set alpha [e_alpha $bw $omega]
     set b1 [expr 1.0 - cos($omega)]
@@ -171,6 +188,222 @@ proc lowpass {f0pix bwpix} {
     puts stderr "\t\tBIQUAD lowpass $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
+# highpass
+proc highpass {f0pix bwpix} {
+    set nn [expr ($f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766]
+    set nn2 [expr ($bwpix+$f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766] 
+    set f [mtof $nn]
+    set bwf [mtof $nn2]
+    set bw [expr ($bwf/$f)-1]
+#    puts stderr "highpass: $f $bw $::filtercenter $::filterwidth"
+    set omega [e_omega $f $::samplerate]
+    set alpha [e_alpha $bw $omega]
+    set b1 [expr -1*(1.0 + cos($omega))]
+    set b0 [expr -$b1/2.0]
+    set b2 $b0
+    set a0 [expr 1.0 + $alpha]
+    set a1 [expr -2.0*cos($omega)]
+    set a2 [expr 1.0 - $alpha]
+    
+    set ::a1 [expr -$a1/$a0]
+    set ::a2 [expr -$a2/$a0]
+    set ::b0 [expr $b0/$a0]
+    set ::b1 [expr $b1/$a0]
+    set ::b2 [expr $b2/$a0]
+#    puts stderr "\t\tBIQUAD highpass $::a1 $::a2 $::b0 $::b1 $::b2"
+}
+
+#bandpass
+proc bandpass {f0pix bwpix} {
+    set nn [expr ($f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766]
+    set nn2 [expr ($bwpix+$f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766] 
+    set f [mtof $nn]
+    set bwf [mtof $nn2]
+    set bw [expr ($bwf/$f)-1]
+#    puts stderr "bandpass: $f $bw $::filtercenter $::filterwidth"
+    set omega [e_omega $f $::samplerate]
+    set alpha [e_alpha $bw $omega]
+    set b1 0
+    set b0 $alpha
+    set b2 [expr -$b0]
+    set a0 [expr 1.0 + $alpha]
+    set a1 [expr -2.0*cos($omega)]
+    set a2 [expr 1.0 - $alpha]
+    
+    set ::a1 [expr -$a1/$a0]
+    set ::a2 [expr -$a2/$a0]
+    set ::b0 [expr $b0/$a0]
+    set ::b1 [expr $b1/$a0]
+    set ::b2 [expr $b2/$a0]
+    puts stderr "\t\tBIQUAD bandpass $::a1 $::a2 $::b0 $::b1 $::b2"
+}
+
+#resonant
+proc resonant {f0pix bwpix} {
+    set nn [expr ($f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766]
+    set nn2 [expr ($bwpix+$f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766] 
+    set f [mtof $nn]
+    set bwf [mtof $nn2]
+    set bw [expr ($bwf/$f)-1]
+#    puts stderr "resonant: $f $bw $::filtercenter $::filterwidth"
+    set omega [e_omega $f $::samplerate]
+    set alpha [e_alpha $bw $omega]
+    set b1 0
+    set b0 [expr sin($omega)/2]
+    set b2 [expr -$b0]
+    set a0 [expr 1.0 + $alpha]
+    set a1 [expr -2.0*cos($omega)]
+    set a2 [expr 1.0 - $alpha]
+    
+    set ::a1 [expr -$a1/$a0]
+    set ::a2 [expr -$a2/$a0]
+    set ::b0 [expr $b0/$a0]
+    set ::b1 [expr $b1/$a0]
+    set ::b2 [expr $b2/$a0]
+    puts stderr "\t\tBIQUAD resonant $::a1 $::a2 $::b0 $::b1 $::b2"
+}
+
+#notch
+proc notch {f0pix bwpix} {
+    set nn [expr ($f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766]
+    set nn2 [expr ($bwpix+$f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766] 
+    set f [mtof $nn]
+    set bwf [mtof $nn2]
+    set bw [expr ($bwf/$f)-1]
+#    puts stderr "notch: $f $bw $::filtercenter $::filterwidth"
+    set omega [e_omega $f $::samplerate]
+    set alpha [e_alpha $bw $omega]
+    set b1 [expr -2.0*cos($omega)]
+    set b0 1
+    set b2 1
+    set a0 [expr 1.0 + $alpha]
+    set a1 $b1
+    set a2 [expr 1.0 - $alpha]
+    
+    set ::a1 [expr -$a1/$a0]
+    set ::a2 [expr -$a2/$a0]
+    set ::b0 [expr $b0/$a0]
+    set ::b1 [expr $b1/$a0]
+    set ::b2 [expr $b2/$a0]
+    puts stderr "\t\tBIQUAD notch $::a1 $::a2 $::b0 $::b1 $::b2"
+}
+
+#peaking
+proc peaking {f0pix bwpix} {
+    set nn [expr ($f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766]
+    set nn2 [expr ($bwpix+$f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766] 
+    set f [mtof $nn]
+    set bwf [mtof $nn2]
+    set bw [expr ($bwf/$f)-1]
+#    puts stderr "peaking: $f $bw $::filtercenter $::filterwidth"
+    set omega [e_omega $f $::samplerate]
+    set alpha [e_alpha $bw $omega]
+    set amp [expr pow(10.0, (-1.0*(($::filtergain-$::framey1)/($::framey2-$::framey1)*50.0-25.0))/40.0)]
+    set alphamulamp [expr $alpha*$amp]
+    set alphadivamp [expr $alpha/$amp]
+    set b1 [expr -2.0*cos($omega)]
+    set b0 [expr 1.0 + $alphamulamp]
+    set b2 [expr 1.0 - $alphamulamp]
+    set a0 [expr 1.0 + $alphadivamp]
+    set a1 $b1
+    set a2 [expr 1.0 - $alphadivamp]
+    
+    set ::a1 [expr -$a1/$a0]
+    set ::a2 [expr -$a2/$a0]
+    set ::b0 [expr $b0/$a0]
+    set ::b1 [expr $b1/$a0]
+    set ::b2 [expr $b2/$a0]
+#    puts stderr "\t\tBIQUAD peaking $::a1 $::a2 $::b0 $::b1 $::b2"
+}
+
+#lowshelf
+proc lowshelf {f0pix bwpix} {
+    set nn [expr ($f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766]
+    set f [mtof $nn]
+    set bw [expr $bwpix / 100.0]
+    set amp [expr pow(10.0, (-1.0*(($::filtergain-$::framey1)/($::framey2-$::framey1)*50.0-25.0))/40.0)]
+#    puts stderr "lowshelf: $f $bw $amp $::filtercenter $::filterwidth $::filtergain"
+    set omega [e_omega $f $::samplerate]
+    set alpha [e_alpha $bw $omega]
+    
+    set alphamod [expr 2.0*sqrt($amp)*$alpha]
+    set cosomega [expr cos($omega)]
+    set ampplus [expr $amp+1.0]
+    set ampmin [expr $amp-1.0]
+    
+    
+    set b0 [expr $amp*($ampplus - $ampmin*$cosomega + $alphamod)]
+    set b1 [expr 2.0*$amp*($ampmin - $ampplus*$cosomega)]
+    set b2 [expr $amp*($ampplus - $ampmin*$cosomega - $alphamod)]
+    set a0 [expr $ampplus + $ampmin*$cosomega + $alphamod]
+    set a1 [expr -2.0*($ampmin + $ampplus*$cosomega)]
+    set a2 [expr $ampplus + $ampmin*$cosomega - $alphamod]
+    
+    set ::a1 [expr -$a1/$a0]
+    set ::a2 [expr -$a2/$a0]
+    set ::b0 [expr $b0/$a0]
+    set ::b1 [expr $b1/$a0]
+    set ::b2 [expr $b2/$a0]
+    puts stderr "\t\tBIQUAD lowshelf $::a1 $::a2 $::b0 $::b1 $::b2"
+}
+
+#highshelf
+proc highshelf {f0pix bwpix} {
+    set nn [expr ($f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766]
+    set nn2 [expr ($bwpix+$f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766] 
+    set f [mtof $nn]
+    set bwf [mtof $nn2]
+    set bw [expr ($bwf/$f)-1]
+    set amp [expr pow(10.0, (-1.0*(($::filtergain-$::framey1)/($::framey2-$::framey1)*50.0-25.0))/40.0)]
+#    puts stderr "highshelf: $f $bw $amp $::filtercenter $::filterwidth $::filtergain"
+    set omega [e_omega $f $::samplerate]
+    set alpha [e_alpha $bw $omega]
+    
+    set alphamod [expr 2.0*sqrt($amp)*$alpha]
+    set cosomega [expr cos($omega)]
+    set ampplus [expr $amp+1.0]
+    set ampmin [expr $amp-1.0]
+    
+    set b0 [expr $amp*($ampplus + $ampmin*$cosomega + $alphamod)]
+    set b1 [expr -2.0*$amp*($ampmin + $ampplus*$cosomega)]
+    set b2 [expr $amp*($ampplus + $ampmin*$cosomega - $alphamod)]
+    set a0 [expr $ampplus - $ampmin*$cosomega + $alphamod]
+    set a1 [expr 2.0*($ampmin - $ampplus*$cosomega)]
+    set a2 [expr $ampplus - $ampmin*$cosomega - $alphamod]
+    
+    set ::a1 [expr -$a1/$a0]
+    set ::a2 [expr -$a2/$a0]
+    set ::b0 [expr $b0/$a0]
+    set ::b1 [expr $b1/$a0]
+    set ::b2 [expr $b2/$a0]
+    puts stderr "\t\tBIQUAD highshelf $::a1 $::a2 $::b0 $::b1 $::b2"
+}
+
+#allpass
+proc allpass {f0pix bwpix} {
+    set nn [expr ($f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766]
+    set nn2 [expr ($bwpix+$f0pix - $::framex1)/($::framex2-$::framex1)*120+16.766] 
+    set f [mtof $nn]
+    set bwf [mtof $nn2]
+    set bw [expr ($bwf/$f)-1]
+#    puts stderr "allpass: $f $bw $::filtercenter $::filterwidth"
+    set omega [e_omega $f $::samplerate]
+    set alpha [e_alpha $bw $omega]
+    
+    set b0 [expr 1.0 - $alpha]
+    set b1 [expr -2.0*cos($omega)]
+    set b2 [expr 1.0 + $alpha]
+    set a0 $b2
+    set a1 $b1
+    set a2 $b0
+    
+    set ::a1 [expr -$a1/$a0]
+    set ::a2 [expr -$a2/$a0]
+    set ::b0 [expr $b0/$a0]
+    set ::b1 [expr $b1/$a0]
+    set ::b2 [expr $b2/$a0]
+    puts stderr "\t\tBIQUAD allpass $::a1 $::a2 $::b0 $::b1 $::b2"
+}
 
 #------------------------------------------------------------------------------#
 
@@ -224,7 +457,7 @@ proc start_movefilter {mycanvas x y} {
 proc movefilter {mycanvas x y} {
     moveband $mycanvas $x
     movegain $mycanvas $y
-    lowpass $::filtercenter $::filterwidth
+    $::currentfiltertype $::filtercenter $::filterwidth
     drawgraph $mycanvas
 }
 
@@ -287,7 +520,7 @@ proc changebandwidth {mycanvas x y} {
     set ::previousx $x
 
     movegain $mycanvas $y
-    lowpass $::filtercenter $::filterwidth
+    $::currentfiltertype $::filtercenter $::filterwidth
     drawgraph $mycanvas
 }
 
