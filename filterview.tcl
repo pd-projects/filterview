@@ -16,7 +16,7 @@
 # lines 64-65: converts x axis to midi notes, then frequencies, then
 #		radians. Before, the conversion to radians was not
 #		done, which is why the response was so jagged proc
-#		calc_magnatude: I reworked the math here a pretty good
+#		calc_magnatude_phase: I reworked the math here a pretty good
 #		amount. It now gives the correct magnitudes as well as
 #		phases. The magnitudes are also converted to dB.
 #
@@ -67,8 +67,9 @@ set b2 0
 # colors
 set markercolor "#bbbbcc"
 
-# allpass, bandpass, highpass, highshelf, lowshelf, notch, peaking, resonant
-set currentfiltertype "peaking"
+# allpass, bandpass, highpass, highshelf, lowpass, lowshelf, notch, peaking, resonant
+set currentfiltertype "lowshelf"
+set filters_with_gain [list "highshelf" "lowshelf" "peaking"]
 
 set receive_name "#fv"
 
@@ -77,29 +78,26 @@ proc mtof {nn} {
     return [expr pow(2.0, ($nn-45)/12.0)*110.0]
 }
 
-proc generate_plotpoints {} {
-    set framewidth [expr int($::framex2 - $::framex1)]
-#    puts stderr "generate_plotpoints $framewidth"
-    for {set x [expr int($::framex1)]} {$x <= $::framex2} {incr x [expr $framewidth/40]} {
-        lappend plotpoints $x
-        set nn [expr ($x - $::framex1)/$framewidth*120+16.766]
-        lappend plotpoints [calc_magnatude [expr $::2pi * [mtof $nn] / $::samplerate]]
-    }
-#    puts stderr "plotpoints $plotpoints"
-    return $plotpoints
-}
-
 proc drawgraph {mycanvas} {
-    set plotpoints [generate_plotpoints]
-#    puts stderr "$mycanvas coords response $plotpoints"
-    $mycanvas coords responseline $plotpoints
-    $mycanvas coords responsefill [concat $plotpoints $::framex2 $::framey2 $::framex1 $::framey2]
+    set framewidth [expr int($::framex2 - $::framex1)]
+    for {set x [expr int($::framex1)]} {$x <= $::framex2} {incr x [expr $framewidth/40]} {
+        lappend magnatudepoints $x
+        lappend phasepoints $x
+        set nn [expr ($x - $::framex1)/$framewidth*120+16.766]
+        set result [calc_magnatude_phase [expr $::2pi * [mtof $nn] / $::samplerate]]
+        lappend magnatudepoints [lindex $result 0]
+        lappend phasepoints [lindex $result 1]
+    }
+    $mycanvas coords responseline $magnatudepoints
+    $mycanvas coords responsefill \
+        [concat $magnatudepoints $::framex2 $::framey2 $::framex1 $::framey2]
+    $mycanvas coords phaseline $phasepoints
 }
 
 #------------------------------------------------------------------------------#
 # calculate magnatude and phase of a given frequency for a set of
 # biquad coefficients.  f is input freq in radians
-proc calc_magnatude {f} {
+proc calc_magnatude_phase {f} {
     set x1 [expr cos(-1.0*$f)]
     set x2 [expr cos(-2.0*$f)]
     set y1 [expr sin(-1.0*$f)]
@@ -144,8 +142,7 @@ proc calc_magnatude {f} {
     # scale phase values to pixels
     set scaledphase [expr $halfframeheight*(-$phase/($::pi)) + $halfframeheight + $::framey1]
     
-    return $logmagnitude
-#    return $scaledphase
+    return [list $logmagnitude $scaledphase]
 }
 
 #------------------------------------------------------------------------------#
@@ -567,6 +564,17 @@ proc filterview_eraseme {tkcanvas} {
     $tkcanvas delete filtergraph
 }
 
+proc filterview_setfilter {tkcanvas filter} {
+    set ::currentfiltertype $filter
+    if {[lsearch -exact $::filters_with_gain $filter] > -1} {
+        $tkcanvas create line $::framex1 $::filtergain $::framex2 $::filtergain \
+            -fill red \
+            -tags [list filtergraph filterlines filtergain]
+    } else {
+        $tkcanvas delete filtergain
+    }
+}
+
 proc filterview_drawme {tkcanvas receive_name} {
     set ::receive_name $receive_name
 #    puts stderr "filterview_new $tkcanvas"
@@ -591,6 +599,11 @@ proc filterview_drawme {tkcanvas receive_name} {
         -fill $::markercolor \
         -tags [list filtergraph]
 
+    # phase response graph line
+    $tkcanvas create line $::framex1 $::midpoint $::framex2 $::midpoint \
+        -fill "#ccf" -width 1 \
+        -tags [list filtergraph response phaseline]
+
     # bandwidth box left side
     $tkcanvas create line $::filterx1 $::framey1 $::filterx1 $::framey2 \
         -fill red \
@@ -604,10 +617,7 @@ proc filterview_drawme {tkcanvas receive_name} {
         -fill red \
         -tags [list filtergraph filterlines filterband filterbandright bandedges]
 
-    # gain line
-    $tkcanvas create line $::framex1 $::filtergain $::framex2 $::filtergain \
-        -fill red \
-        -tags [list filtergraph filterlines filtergain]
+    filterview_setfilter $tkcanvas $::currentfiltertype
 
     # filtergraph binding is also changed by enter/leave on the band
     $tkcanvas bind filtergraph <ButtonPress-1> {start_movefilter %W %x %y}
