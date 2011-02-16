@@ -1,2 +1,14 @@
-#N canvas 387 203 450 300 10;
-#X obj 185 150 filterview;
+#N canvas 387 203 855 338 10;
+#X obj -163 -62 filterview;
+#X obj 375 114 osc~;
+#X obj 484 143 receive #filterview;
+#X obj 496 228 pddp/print;
+#X obj 409 232 biquad~;
+#X obj 393 190 noise~;
+#X obj 480 201 route biquad;
+#X obj 397 268 dac~;
+#X connect 2 0 6 0;
+#X connect 4 0 7 0;
+#X connect 5 0 4 0;
+#X connect 6 0 3 0;
+#X connect 6 0 4 0;

@@ -1,19 +1,25 @@
 #include <stdio.h>
 
 #include "m_pd.h"
+#include "m_imp.h"
 #include "g_canvas.h"
 
 typedef struct filterview
 {
-    t_object x_ob;
+    t_object x_obj;
     t_canvas*   x_canvas;      /* canvas this widget is currently drawn in */
     t_glist*    x_glist;       /* glist that owns this widget */
 
-	char   canvas_id[MAXPDSTRING];  
-	char   widget_id[MAXPDSTRING];        
-
     int         width;
     int         height;
+
+    /* IDs for Tk widgets */
+    t_symbol*   receive_name;  /* name to bind to to receive callbacks */
+	char        canvas_id[MAXPDSTRING];
+    char        widget_id[MAXPDSTRING];
+    
+    t_outlet*   x_data_outlet;
+    t_outlet*   x_status_outlet;
 } t_filterview;
 
 t_class *filterview_class;
@@ -26,34 +32,80 @@ static void set_tkwidgets_ids(t_filterview* x, t_canvas* canvas)
     sprintf(x->widget_id,"%s.widget%lx", x->canvas_id, (long unsigned int)x);
 }
 
-static void drawme(t_filterview *x, t_glist *glist)
+
+static void filterview_biquad_callback(t_filterview *x, t_symbol *s, 
+                                       int argc, t_atom* argv)
 {
-    set_tkwidgets_ids(x,glist_getcanvas(glist));
-    post("drawme");
-    sys_vgui("filterview_new .x%lx.c\n", x->canvas_id);
+    outlet_list(x->x_data_outlet, s, argc, argv);
+}
+/* widgetbehavior */
+
+static void filterview_getrect(t_gobj *z, t_glist *glist,
+                          int *xp1, int *yp1, int *xp2, int *yp2)
+{
+    t_filterview* x = (t_filterview*)z;
+
+    *xp1 = text_xpix(&x->x_obj, glist);
+    *yp1 = text_ypix(&x->x_obj, glist);
+    *xp2 = text_xpix(&x->x_obj, glist) + x->width;
+    *yp2 = text_ypix(&x->x_obj, glist) + x->height;
 }
 
-static void eraseme(t_filterview *x)
+static void filterview_displace(t_gobj *z, t_glist *glist, int dx, int dy)
 {
-    post("eraseme");
+    t_filterview *x = (t_filterview *)z;
+    x->x_obj.te_xpix += dx;
+    x->x_obj.te_ypix += dy;
+    if (glist_isvisible(glist))
+    {
+/*        sys_vgui("%s move %s %d %d\n", 
+                 x->canvas_id->s_name, x->all_tag->s_name, dx, dy);
+        sys_vgui("%s move RSZ %d %d\n", x->canvas_id->s_name, dx, dy);*/
+        canvas_fixlinesfor(glist_getcanvas(glist), (t_text*) x);
+    }
 }
 
 static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
 {
-    t_filterview* s = (t_filterview*)z;
+    t_filterview* x = (t_filterview*)z;
     if (vis)
-        drawme(s, glist);
-    else
-        eraseme(s);
+    {
+        set_tkwidgets_ids(x, glist);
+        post("drawme");
+        sys_vgui("filterview_drawme %s %s\n", x->canvas_id, 
+                 x->receive_name->s_name);
+    }
+    else 
+    {
+        post("eraseme");
+        sys_vgui("filterview_eraseme %s\n", x->canvas_id);
+    }
 }
 
-void *filterview_new(void)
+static void *filterview_new(void)
 {
     t_filterview *x = (t_filterview *)pd_new(filterview_class);
+    char buf[MAXPDSTRING];
 
     post("filterview_new");
+    x->width = 300;
+    x->height = 200;
+    x->x_glist = canvas_getcurrent();
+
+//    sprintf(x->receive_name, "#%lx", x);
+    sprintf(buf, "#filterview");
+    x->receive_name = gensym(buf);
+    pd_bind(&x->x_obj.ob_pd, x->receive_name);
+
+    x->x_data_outlet = outlet_new(&x->x_obj, &s_list);
+    x->x_status_outlet = outlet_new(&x->x_obj, &s_anything);
 
     return (void *)x;
+}
+
+static void filterview_free(t_filterview *x)
+{
+    pd_unbind(&x->x_obj.ob_pd, x->receive_name);
 }
 
 void filterview_setup(void)
@@ -61,15 +113,16 @@ void filterview_setup(void)
     post("filterview_setup");
     filterview_class = class_new(gensym("filterview"), 
                                  (t_newmethod)filterview_new, 
-                                 0,
+                                 (t_method)filterview_free, 
                                  sizeof(t_filterview), 
                                  0, 0);
-    sys_gui("eval [read [open /Users/hans/code/pd-projects/filterview/filterview.tcl]]\n");
-    post("end filterview_setup");
+
+    class_addmethod(filterview_class, (t_method)filterview_biquad_callback,
+                    gensym("biquad"), A_FLOAT, A_FLOAT, A_FLOAT, A_FLOAT, A_FLOAT, 0);
 
 /* widget behavior */
-    filterview_widgetbehavior.w_getrectfn  = NULL;
-    filterview_widgetbehavior.w_displacefn = NULL;
+    filterview_widgetbehavior.w_getrectfn  = filterview_getrect;
+    filterview_widgetbehavior.w_displacefn = filterview_displace;
     filterview_widgetbehavior.w_selectfn   = NULL;
     filterview_widgetbehavior.w_activatefn = NULL;
     filterview_widgetbehavior.w_deletefn   = NULL;
@@ -77,5 +130,8 @@ void filterview_setup(void)
     filterview_widgetbehavior.w_clickfn    = NULL;
     class_setwidget(filterview_class, &filterview_widgetbehavior);
 //    class_setsavefn(filterview_class, &filterview_save);
+    sys_vgui("eval [read [open %s/filterview.tcl]]\n",
+        filterview_class->c_externdir->s_name);
+    post("end filterview_setup");
 }
 

@@ -7,36 +7,44 @@
 
 #------------- .mmb edits ----------------
 #
-# lines 43-47: changed names of coefficient variables (they were incorrect and led to confusion). I updated this
+# lines 43-47: changed names of coefficient variables (they were
+#		incorrect and led to confusion). I updated this
 #		throughout (I think).
+#
 # line 54: added proc mtof for intuitive log frequency scaling.
-# lines 64-65: converts x axis to midi notes, then frequencies, then radians. Before, the conversion to radians was not
-#		done, which is why the response was so jagged
-# proc calc_magnatude: I reworked the math here a pretty good amount. It now gives the correct magnitudes as well
-#		as phases. The magnitudes are also converted to dB.
-# line 134: I added a proc e_alphaq. I just did this to see the response without resonance (q = .7071) to be sure it 
-#		wasn't what was causing problems. Might be useful later.
-# lines 146-147: Frequency input for calculating coefficients is a again log-scaled with mtof.
+#
+# lines 64-65: converts x axis to midi notes, then frequencies, then
+#		radians. Before, the conversion to radians was not
+#		done, which is why the response was so jagged proc
+#		calc_magnatude: I reworked the math here a pretty good
+#		amount. It now gives the correct magnitudes as well as
+#		phases. The magnitudes are also converted to dB.
+#
+# line 134: I added a proc e_alphaq. I just did this to see the
+#		response without resonance (q = .7071) to be sure it
+#		wasn't what was causing problems. Might be useful
+#		later.
+#
+# lines 146-147: Frequency input for calculating coefficients is a
+#                 again log-scaled with mtof.
 #
 #-----------------------------------------
 package require Tk
 
-set tcl_precision 6  ;# http://wiki.tcl.tk/8401
+#set tcl_precision 6  ;# http://wiki.tcl.tk/8401
 
 set framex1 30.0
 set framey1 30.0
-set framex2 300.0
-set framey2 300.0
+set framex2 330.0
+set framey2 230.0
 set midpoint [expr (($::framey2 - $::framey1) / 2) + $::framey1]
 set hzperpixel [expr 20000.0 / ($::framex2 - $::framex1)]
 set magnatudeperpixel [expr 0.5 / ($::framey2 - $::framey1)]
 
 set filterx1 120.0
 set filterx2 180.0
-set filterlimit1 100.0
-set filterlimit2 200.0
 
-set filtergain 150
+set filtergain $::midpoint
 set filterwidth [expr $::filterx2 - $::filterx1]
 set filtercenter [expr $::filterx1 + ($::filterwidth/2)]
 set lessthan_filtercenter 1
@@ -62,6 +70,8 @@ set markercolor "#bbbbcc"
 # allpass, bandpass, highpass, highshelf, lowshelf, notch, peaking, resonant
 set currentfiltertype "notch"
 
+set receive_name "#fv"
+
 #------------------------------------------------------------------------------#
 proc mtof {nn} {
     return [expr pow(2.0, ($nn-45)/12.0)*110.0]
@@ -69,7 +79,7 @@ proc mtof {nn} {
 
 proc generate_plotpoints {} {
     set framewidth [expr int($::framex2 - $::framex1)]
-    puts stderr "generate_plotpoints $framewidth"
+#    puts stderr "generate_plotpoints $framewidth"
     for {set x [expr int($::framex1)]} {$x <= $::framex2} {incr x [expr $framewidth/40]} {
         lappend plotpoints $x
         set nn [expr ($x - $::framex1)/$framewidth*120+16.766]
@@ -81,7 +91,7 @@ proc generate_plotpoints {} {
 
 proc drawgraph {mycanvas} {
     set plotpoints [generate_plotpoints]
-    puts stderr "$mycanvas coords response $plotpoints"
+#    puts stderr "$mycanvas coords response $plotpoints"
     $mycanvas coords responseline $plotpoints
     $mycanvas coords responsefill [concat $plotpoints $::framex2 $::framey2 $::framex1 $::framey2]
 }
@@ -111,7 +121,7 @@ proc calc_magnatude {f} {
 
     # convert magnitude to dB scale
     set logmagnitude [expr 20.0*log($magnatude)/log(10)]
-    puts stderr "MAGNATUDE at $fHz Hz ($f radians): $magnatude dB: $logmagnitude"
+#    puts stderr "MAGNATUDE at $fHz Hz ($f radians): $magnatude dB: $logmagnitude"
     # clip
     if {$logmagnitude > 25.0} {
         set logmagnitude 25.0
@@ -285,6 +295,7 @@ proc notch {f0pix bwpix} {
     set ::b0 [expr $b0/$a0]
     set ::b1 [expr $b1/$a0]
     set ::b2 [expr $b2/$a0]
+    pdsend "$::receive_name biquad $::a1 $::a2 $::b0 $::b1 $::b2"
     puts stderr "\t\tBIQUAD notch $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
@@ -446,7 +457,7 @@ proc movegain {mycanvas y} {
 # move the filter
 
 proc start_movefilter {mycanvas x y} {
-    puts stderr "start_movefilter $mycanvas $x $y"
+#    puts stderr "start_movefilter $mycanvas $x $y"
     set ::previousx $x
     set ::previousy $y
     $mycanvas configure -cursor fleur
@@ -465,7 +476,7 @@ proc movefilter {mycanvas x y} {
 # change the filter
 
 proc start_changebandwidth {mycanvas x y} {
-    puts stderr "start_changebandwidth $mycanvas $x $y"
+#    puts stderr "start_changebandwidth $mycanvas $x $y"
     set ::previousx $x
     set ::previousy $y
     if {$x < $::filtercenter} {
@@ -484,10 +495,7 @@ proc changebandwidth {mycanvas x y} {
     puts stderr "changebandwidth $mycanvas $x $y"
     set dx [expr $x - $::previousx]
     if {$::lessthan_filtercenter} {
-        if {$x < $::filterlimit1} {
-            set ::filterx1 $::filterlimit1
-            set ::filterx2 [expr $::filterx1 + $::filterwidth] 
-        } elseif {$x < $::framex1} {
+        if {$x < $::framex1} {
             set ::filterx1 $::framex1
             set ::filterx2 [expr $::filterx1 + $::filterwidth] 
         } elseif {$x > $::filtercenter} {
@@ -498,10 +506,7 @@ proc changebandwidth {mycanvas x y} {
             set ::filterx2 [expr $::filterx2 - $dx]
         }
     } else {
-        if {$x > $::filterlimit2} {
-            set ::filterx2 $::filterlimit2
-            set ::filterx1 [expr $::filterx2 - $::filterwidth] 
-        } elseif {$x > $::framex2} {
+        if {$x > $::framex2} {
             set ::filterx2 $::framex2
             set ::filterx1 [expr $::filterx2 - $::filterwidth] 
         } elseif {$x < $::filtercenter} {
@@ -533,14 +538,14 @@ proc filterband_cursor {mycanvas x} {
 }
 
 proc enterband {mycanvas} {
-    puts stderr "enterband $mycanvas"
+#    puts stderr "enterband $mycanvas"
     $mycanvas bind filtergraph <ButtonPress-1> {}
     $mycanvas bind bandedges <Motion> {filterband_cursor %W %x}
     $mycanvas itemconfigure filterband -width 2
 }
 
 proc leaveband {mycanvas} {
-    puts stderr "leaveband $mycanvas"
+#    puts stderr "leaveband $mycanvas"
     $mycanvas bind filtergraph <ButtonPress-1> {start_movefilter %W %x %y}
     $mycanvas bind bandedges <Motion> {}
     $mycanvas configure -cursor arrow
@@ -550,7 +555,7 @@ proc leaveband {mycanvas} {
 #------------------------------------------------------------------------------#
 
 proc stop_editing {mycanvas} {
-    puts stderr "stop_editing $mycanvas"
+#    puts stderr "stop_editing $mycanvas"
     $mycanvas bind filtergraph <Motion> {}
     $mycanvas itemconfigure filterlines -width 1
     $mycanvas configure -cursor arrow
@@ -560,8 +565,13 @@ proc stop_editing {mycanvas} {
 
 #------------------------------------------------------------------------------#
 
-proc filterview_new {tkcanvas} {
-    puts stderr "filterview_new $tkcanvas"
+proc filterview_eraseme {tkcanvas} {
+    $tkcanvas delete filtergraph
+}
+
+proc filterview_drawme {tkcanvas receive_name} {
+    set ::receive_name $receive_name
+#    puts stderr "filterview_new $tkcanvas"
     # background
     $tkcanvas create rectangle $::framex1 $::framey1 $::framex2 $::framey2 \
         -outline $::markercolor -fill "#eeeeff" \
@@ -611,7 +621,12 @@ proc filterview_new {tkcanvas} {
     stop_editing $tkcanvas
 }
 
-wm geometry . 400x400+500+40
-canvas .c
-pack .c -side left -expand 1 -fill both
-filterview_new .c
+# if not loading within Pd, then create a window and canvas to work with
+if {[info procs "pdtk_post"] eq "pdtk_post"} {
+    pdtk_post "done loading filterview.tcl"
+} else {
+    wm geometry . 400x400+500+40
+    canvas .c
+    pack .c -side left -expand 1 -fill both
+    filterview_drawme .c
+}
