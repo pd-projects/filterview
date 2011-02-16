@@ -68,7 +68,7 @@ set b2 0
 set markercolor "#bbbbcc"
 
 # allpass, bandpass, highpass, highshelf, lowshelf, notch, peaking, resonant
-set currentfiltertype "notch"
+set currentfiltertype "peaking"
 
 set receive_name "#fv"
 
@@ -195,7 +195,6 @@ proc lowpass {f0pix bwpix} {
     set ::b0 [expr $b0/$a0]
     set ::b1 [expr $b1/$a0]
     set ::b2 [expr $b2/$a0]
-    puts stderr "\t\tBIQUAD lowpass $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
 # highpass
@@ -220,7 +219,6 @@ proc highpass {f0pix bwpix} {
     set ::b0 [expr $b0/$a0]
     set ::b1 [expr $b1/$a0]
     set ::b2 [expr $b2/$a0]
-#    puts stderr "\t\tBIQUAD highpass $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
 #bandpass
@@ -245,7 +243,6 @@ proc bandpass {f0pix bwpix} {
     set ::b0 [expr $b0/$a0]
     set ::b1 [expr $b1/$a0]
     set ::b2 [expr $b2/$a0]
-    puts stderr "\t\tBIQUAD bandpass $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
 #resonant
@@ -270,7 +267,6 @@ proc resonant {f0pix bwpix} {
     set ::b0 [expr $b0/$a0]
     set ::b1 [expr $b1/$a0]
     set ::b2 [expr $b2/$a0]
-    puts stderr "\t\tBIQUAD resonant $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
 #notch
@@ -295,8 +291,6 @@ proc notch {f0pix bwpix} {
     set ::b0 [expr $b0/$a0]
     set ::b1 [expr $b1/$a0]
     set ::b2 [expr $b2/$a0]
-    pdsend "$::receive_name biquad $::a1 $::a2 $::b0 $::b1 $::b2"
-    puts stderr "\t\tBIQUAD notch $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
 #peaking
@@ -324,7 +318,6 @@ proc peaking {f0pix bwpix} {
     set ::b0 [expr $b0/$a0]
     set ::b1 [expr $b1/$a0]
     set ::b2 [expr $b2/$a0]
-#    puts stderr "\t\tBIQUAD peaking $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
 #lowshelf
@@ -355,7 +348,6 @@ proc lowshelf {f0pix bwpix} {
     set ::b0 [expr $b0/$a0]
     set ::b1 [expr $b1/$a0]
     set ::b2 [expr $b2/$a0]
-    puts stderr "\t\tBIQUAD lowshelf $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
 #highshelf
@@ -387,7 +379,6 @@ proc highshelf {f0pix bwpix} {
     set ::b0 [expr $b0/$a0]
     set ::b1 [expr $b1/$a0]
     set ::b2 [expr $b2/$a0]
-    puts stderr "\t\tBIQUAD highshelf $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
 #allpass
@@ -413,7 +404,6 @@ proc allpass {f0pix bwpix} {
     set ::b0 [expr $b0/$a0]
     set ::b1 [expr $b1/$a0]
     set ::b2 [expr $b2/$a0]
-    puts stderr "\t\tBIQUAD allpass $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
 #------------------------------------------------------------------------------#
@@ -470,6 +460,7 @@ proc movefilter {mycanvas x y} {
     movegain $mycanvas $y
     $::currentfiltertype $::filtercenter $::filterwidth
     drawgraph $mycanvas
+    pdsend "$::receive_name biquad $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
 #------------------------------------------------------------------------------#
@@ -492,12 +483,15 @@ proc start_changebandwidth {mycanvas x y} {
 }
 
 proc changebandwidth {mycanvas x y} {
-    puts stderr "changebandwidth $mycanvas $x $y"
+#    puts stderr "changebandwidth $mycanvas $x $y"
     set dx [expr $x - $::previousx]
     if {$::lessthan_filtercenter} {
         if {$x < $::framex1} {
             set ::filterx1 $::framex1
             set ::filterx2 [expr $::filterx1 + $::filterwidth] 
+        } elseif {$x < [expr $::filtercenter - 75]} {
+            set ::filterx1 [expr $::filtercenter - 75]
+            set ::filterx2 [expr $::filtercenter + 75]
         } elseif {$x > $::filtercenter} {
             set ::filterx1 $::filtercenter
             set ::filterx2 $::filtercenter
@@ -509,6 +503,9 @@ proc changebandwidth {mycanvas x y} {
         if {$x > $::framex2} {
             set ::filterx2 $::framex2
             set ::filterx1 [expr $::filterx2 - $::filterwidth] 
+        } elseif {$x > [expr $::filtercenter + 75]} {
+            set ::filterx1 [expr $::filtercenter - 75]
+            set ::filterx2 [expr $::filtercenter + 75]
         } elseif {$x < $::filtercenter} {
             set ::filterx1 $::filtercenter
             set ::filterx2 $::filtercenter
@@ -527,6 +524,7 @@ proc changebandwidth {mycanvas x y} {
     movegain $mycanvas $y
     $::currentfiltertype $::filtercenter $::filterwidth
     drawgraph $mycanvas
+    pdsend "$::receive_name biquad $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
 proc filterband_cursor {mycanvas x} {
@@ -628,5 +626,6 @@ if {[info procs "pdtk_post"] eq "pdtk_post"} {
     wm geometry . 400x400+500+40
     canvas .c
     pack .c -side left -expand 1 -fill both
-    filterview_drawme .c
+    filterview_drawme .c #filterview
+    proc pdsend {args} {puts stderr "pdsend $args"}
 }
