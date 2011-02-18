@@ -72,6 +72,11 @@ static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
     {
         set_tkwidgets_ids(x, glist);
         post("drawme");
+        sys_vgui("filterview_setrect %d %d %d %d\n",
+                 text_xpix(&x->x_obj, glist), 
+                 text_ypix(&x->x_obj, glist),
+                 text_xpix(&x->x_obj, glist)+x->width, 
+                 text_ypix(&x->x_obj, glist)+x->height);
         sys_vgui("filterview_drawme %s %s\n", x->canvas_id, 
                  x->receive_name->s_name);
     }

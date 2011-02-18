@@ -4,6 +4,7 @@
 
 #catch {console show}
 
+# TODO accept biquad lists on the inlet
 
 #------------- .mmb edits ----------------
 #
@@ -33,20 +34,6 @@ package require Tk
 
 #set tcl_precision 6  ;# http://wiki.tcl.tk/8401
 
-set framex1 30.0
-set framey1 30.0
-set framex2 330.0
-set framey2 230.0
-set midpoint [expr (($::framey2 - $::framey1) / 2) + $::framey1]
-set hzperpixel [expr 20000.0 / ($::framex2 - $::framex1)]
-set magnatudeperpixel [expr 0.5 / ($::framey2 - $::framey1)]
-
-set filterx1 120.0
-set filterx2 180.0
-
-set filtergain $::midpoint
-set filterwidth [expr $::filterx2 - $::filterx1]
-set filtercenter [expr $::filterx1 + ($::filterwidth/2)]
 set lessthan_filtercenter 1
 
 set previousx 0
@@ -559,6 +546,28 @@ proc stop_editing {mycanvas} {
 }
 
 #------------------------------------------------------------------------------#
+proc filterview_set_samplerate {sr} {
+    set ::samplerate $sr
+}
+
+proc filterview_setrect {x1 y1 x2 y2} {
+    # convert these all to floats so the math works properly
+    set ::framex1 [expr $x1 * 1.0]
+    set ::framey1 [expr $y1 * 1.0]
+    set ::framex2 [expr $x2 * 1.0]
+    set ::framey2 [expr $y2 * 1.0]
+    
+    set ::midpoint [expr (($::framey2 - $::framey1) / 2) + $::framey1]
+    set ::hzperpixel [expr 20000.0 / ($::framex2 - $::framex1)]
+    set ::magnatudeperpixel [expr 0.5 / ($::framey2 - $::framey1)]
+    
+    set ::filterx1 120.0
+    set ::filterx2 180.0
+
+    set ::filtergain $::midpoint
+    set ::filterwidth [expr $::filterx2 - $::filterx1]
+    set ::filtercenter [expr $::filterx1 + ($::filterwidth/2)]
+}
 
 proc filterview_eraseme {tkcanvas} {
     $tkcanvas delete filtergraph
@@ -580,7 +589,7 @@ proc filterview_drawme {tkcanvas receive_name} {
 #    puts stderr "filterview_new $tkcanvas"
     # background
     $tkcanvas create rectangle $::framex1 $::framey1 $::framex2 $::framey2 \
-        -outline $::markercolor -fill "#eeeeff" \
+        -outline $::markercolor -fill "#f8feff" \
         -tags [list filtergraph]
 
     # magnatude response graph fill
@@ -637,6 +646,7 @@ if {[info procs "pdtk_post"] eq "pdtk_post"} {
         proc pdsend {args} {pd "[join $args { }] ;"}
     }
 } else {
+    filterview_setrect 30.0 30.0 330.0 230.0
     wm geometry . 400x400+500+40
     canvas .c
     pack .c -side left -expand 1 -fill both
