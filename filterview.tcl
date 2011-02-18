@@ -632,6 +632,10 @@ proc filterview_drawme {tkcanvas receive_name} {
 # if not loading within Pd, then create a window and canvas to work with
 if {[info procs "pdtk_post"] eq "pdtk_post"} {
     pdtk_post "done loading filterview.tcl"
+    # check if we are Pd < 0.43, which has no 'pdsend', but a 'pd' coded in C
+    if {[info procs "pdsend"] ne "pdsend"} {
+        proc pdsend {args} {pd "[join $args { }] ;"}
+    }
 } else {
     wm geometry . 400x400+500+40
     canvas .c
