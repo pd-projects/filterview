@@ -83,6 +83,15 @@ proc drawgraph {tkcanvas} {
     $tkcanvas coords phaseline $phasepoints
 }
 
+proc update_coefficients {tkcanvas} {
+    # run the calc for a given filter type first
+    $::currentfiltertype $::filtercenter $::filterwidth
+    # send the result to pd
+    pdsend "$::receive_name biquad $::a1 $::a2 $::b0 $::b1 $::b2"
+    # update the graph
+    drawgraph $tkcanvas
+}
+
 #------------------------------------------------------------------------------#
 # calculate magnatude and phase of a given frequency for a set of
 # biquad coefficients.  f is input freq in radians
@@ -445,9 +454,7 @@ proc start_movefilter {tkcanvas x y} {
 proc movefilter {tkcanvas x y} {
     moveband $tkcanvas $x
     movegain $tkcanvas $y
-    $::currentfiltertype $::filtercenter $::filterwidth
-    drawgraph $tkcanvas
-    pdsend "$::receive_name biquad $::a1 $::a2 $::b0 $::b1 $::b2"
+    update_coefficients $tkcanvas
 }
 
 #------------------------------------------------------------------------------#
@@ -510,9 +517,7 @@ proc changebandwidth {tkcanvas x y} {
     set ::previousx $x
 
     movegain $tkcanvas $y
-    $::currentfiltertype $::filtercenter $::filterwidth
-    drawgraph $tkcanvas
-    pdsend "$::receive_name biquad $::a1 $::a2 $::b0 $::b1 $::b2"
+    update_coefficients $tkcanvas
 }
 
 proc filterband_cursor {tkcanvas x} {
@@ -600,6 +605,7 @@ proc filterview_setfilter {tkcanvas filter} {
     } else {
         $tkcanvas delete filtergain
     }
+    update_coefficients $tkcanvas
 }
 
 proc filterview_drawme {tkcanvas receive_name} {
