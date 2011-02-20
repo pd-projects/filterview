@@ -53,6 +53,8 @@ set b2 0
 
 # colors
 set markercolor "#bbbbcc"
+set mutedline_color "#ffbbbb"
+set selectedline_color "#ff0000"
 
 # allpass, bandpass, highpass, highshelf, lowpass, lowshelf, notch, peaking, resonant
 set currentfiltertype "lowshelf"
@@ -65,7 +67,7 @@ proc mtof {nn} {
     return [expr pow(2.0, ($nn-45)/12.0)*110.0]
 }
 
-proc drawgraph {mycanvas} {
+proc drawgraph {tkcanvas} {
     set framewidth [expr int($::framex2 - $::framex1)]
     for {set x [expr int($::framex1)]} {$x <= $::framex2} {incr x [expr $framewidth/40]} {
         lappend magnatudepoints $x
@@ -75,10 +77,10 @@ proc drawgraph {mycanvas} {
         lappend magnatudepoints [lindex $result 0]
         lappend phasepoints [lindex $result 1]
     }
-    $mycanvas coords responseline $magnatudepoints
-    $mycanvas coords responsefill \
+    $tkcanvas coords responseline $magnatudepoints
+    $tkcanvas coords responsefill \
         [concat $magnatudepoints $::framex2 $::framey2 $::framex1 $::framey2]
-    $mycanvas coords phaseline $phasepoints
+    $tkcanvas coords phaseline $phasepoints
 }
 
 #------------------------------------------------------------------------------#
@@ -392,7 +394,7 @@ proc allpass {f0pix bwpix} {
 
 #------------------------------------------------------------------------------#
 
-proc moveband {mycanvas x} {
+proc moveband {tkcanvas x} {
     set dx [expr $x - $::previousx]
     set x1 [expr $::filterx1 + $dx]
     set x2 [expr $::filterx2 + $dx]
@@ -408,13 +410,13 @@ proc moveband {mycanvas x} {
     }
     set ::filterwidth [expr $::filterx2 - $::filterx1]
     set ::filtercenter [expr $::filterx1 + ($::filterwidth/2)]
-    $mycanvas coords filterbandleft $::filterx1 $::framey1  $::filterx1 $::framey2
-    $mycanvas coords filterbandcenter $::filtercenter $::framey1  $::filtercenter $::framey2
-    $mycanvas coords filterbandright $::filterx2 $::framey1  $::filterx2 $::framey2
+    $tkcanvas coords filterbandleft $::filterx1 $::framey1  $::filterx1 $::framey2
+    $tkcanvas coords filterbandcenter $::filtercenter $::framey1  $::filtercenter $::framey2
+    $tkcanvas coords filterbandright $::filterx2 $::framey1  $::filterx2 $::framey2
     set ::previousx $x
 }
 
-proc movegain {mycanvas y} {
+proc movegain {tkcanvas y} {
     set gainy [expr $::filtergain + $y - $::previousy]
     if {[expr $gainy < $::framey1]} {
         set ::filtergain $::framey1
@@ -423,35 +425,36 @@ proc movegain {mycanvas y} {
     } else {
         set ::filtergain $gainy
     }
-    $mycanvas coords filtergain $::framex1 $::filtergain $::framex2 $::filtergain
+    $tkcanvas coords filtergain $::framex1 $::filtergain $::framex2 $::filtergain
     set ::previousy $y
 }
 
 #------------------------------------------------------------------------------#
 # move the filter
 
-proc start_movefilter {mycanvas x y} {
-#    puts stderr "start_movefilter $mycanvas $x $y"
+proc start_movefilter {tkcanvas x y} {
+#    puts stderr "start_movefilter $tkcanvas $x $y"
     set ::previousx $x
     set ::previousy $y
-    $mycanvas configure -cursor fleur
-    $mycanvas itemconfigure filterlines -width 2
-    $mycanvas bind filtergraph <Motion> "movefilter %W %x %y"
+    $tkcanvas configure -cursor fleur
+    $tkcanvas itemconfigure filterlines -width 2 -fill $::selectedline_color
+    $tkcanvas bind filtergraph <Motion> "movefilter %W %x %y"
+    create_centerline $tkcanvas
 }
 
-proc movefilter {mycanvas x y} {
-    moveband $mycanvas $x
-    movegain $mycanvas $y
+proc movefilter {tkcanvas x y} {
+    moveband $tkcanvas $x
+    movegain $tkcanvas $y
     $::currentfiltertype $::filtercenter $::filterwidth
-    drawgraph $mycanvas
+    drawgraph $tkcanvas
     pdsend "$::receive_name biquad $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
 #------------------------------------------------------------------------------#
 # change the filter
 
-proc start_changebandwidth {mycanvas x y} {
-#    puts stderr "start_changebandwidth $mycanvas $x $y"
+proc start_changebandwidth {tkcanvas x y} {
+#    puts stderr "start_changebandwidth $tkcanvas $x $y"
     set ::previousx $x
     set ::previousy $y
     if {$x < $::filtercenter} {
@@ -459,15 +462,16 @@ proc start_changebandwidth {mycanvas x y} {
     } else {
         set ::lessthan_filtercenter 0
     }
-    $mycanvas bind bandedges <Leave> {}
-    $mycanvas bind bandedges <Enter> {}
-    $mycanvas bind bandedges <Motion> {}
-    $mycanvas configure -cursor sb_h_double_arrow
-    $mycanvas bind filtergraph <Motion> {changebandwidth %W %x %y}
+    $tkcanvas bind bandedges <Leave> {}
+    $tkcanvas bind bandedges <Enter> {}
+    $tkcanvas bind bandedges <Motion> {}
+    $tkcanvas configure -cursor sb_h_double_arrow
+    $tkcanvas bind filtergraph <Motion> {changebandwidth %W %x %y}
+    create_centerline $tkcanvas
 }
 
-proc changebandwidth {mycanvas x y} {
-#    puts stderr "changebandwidth $mycanvas $x $y"
+proc changebandwidth {tkcanvas x y} {
+#    puts stderr "changebandwidth $tkcanvas $x $y"
     set dx [expr $x - $::previousx]
     if {$::lessthan_filtercenter} {
         if {$x < $::framex1} {
@@ -500,49 +504,63 @@ proc changebandwidth {mycanvas x y} {
     }
     set ::filterwidth [expr $::filterx2 - $::filterx1]
     set ::filtercenter [expr $::filterx1 + ($::filterwidth/2)]
-    $mycanvas coords filterbandleft $::filterx1 $::framey1  $::filterx1 $::framey2
-    $mycanvas coords filterbandcenter $::filtercenter $::framey1  $::filtercenter $::framey2
-    $mycanvas coords filterbandright $::filterx2 $::framey1  $::filterx2 $::framey2
+    $tkcanvas coords filterbandleft $::filterx1 $::framey1  $::filterx1 $::framey2
+    $tkcanvas coords filterbandcenter $::filtercenter $::framey1  $::filtercenter $::framey2
+    $tkcanvas coords filterbandright $::filterx2 $::framey1  $::filterx2 $::framey2
     set ::previousx $x
 
-    movegain $mycanvas $y
+    movegain $tkcanvas $y
     $::currentfiltertype $::filtercenter $::filterwidth
-    drawgraph $mycanvas
+    drawgraph $tkcanvas
     pdsend "$::receive_name biquad $::a1 $::a2 $::b0 $::b1 $::b2"
 }
 
-proc filterband_cursor {mycanvas x} {
+proc filterband_cursor {tkcanvas x} {
     if {$x < $::filtercenter} {
-        $mycanvas configure -cursor left_side
+        $tkcanvas configure -cursor left_side
     } else {
-        $mycanvas configure -cursor right_side
+        $tkcanvas configure -cursor right_side
     }
 }
 
-proc enterband {mycanvas} {
-#    puts stderr "enterband $mycanvas"
-    $mycanvas bind filtergraph <ButtonPress-1> {}
-    $mycanvas bind bandedges <Motion> {filterband_cursor %W %x}
-    $mycanvas itemconfigure filterband -width 2
+proc enterband {tkcanvas} {
+#    puts stderr "enterband $tkcanvas"
+    $tkcanvas bind filtergraph <ButtonPress-1> {}
+    $tkcanvas bind bandedges <Motion> {filterband_cursor %W %x}
+    $tkcanvas itemconfigure filterband -width 2 -fill $::selectedline_color
 }
 
-proc leaveband {mycanvas} {
-#    puts stderr "leaveband $mycanvas"
-    $mycanvas bind filtergraph <ButtonPress-1> {start_movefilter %W %x %y}
-    $mycanvas bind bandedges <Motion> {}
-    $mycanvas configure -cursor arrow
-    $mycanvas itemconfigure filterband -width 1
+proc leaveband {tkcanvas} {
+#    puts stderr "leaveband $tkcanvas"
+    $tkcanvas bind filtergraph <ButtonPress-1> {start_movefilter %W %x %y}
+    $tkcanvas bind bandedges <Motion> {}
+    $tkcanvas configure -cursor arrow
+    $tkcanvas itemconfigure filterband -width 1 -fill $::mutedline_color
 }
 
 #------------------------------------------------------------------------------#
 
-proc stop_editing {mycanvas} {
-#    puts stderr "stop_editing $mycanvas"
-    $mycanvas bind filtergraph <Motion> {}
-    $mycanvas itemconfigure filterlines -width 1
-    $mycanvas configure -cursor arrow
-    $mycanvas bind bandedges <Enter> {enterband %W}
-    $mycanvas bind bandedges <Leave> {leaveband %W}
+proc create_centerline {tkcanvas} {
+    # bandwidth box center
+    $tkcanvas create line $::filtercenter $::framey1 $::filtercenter $::framey2 \
+        -fill $::mutedline_color \
+        -tags [list filtergraph filterlines filterband filterbandcenter]
+}
+
+proc delete_centerline {tkcanvas} {
+    $tkcanvas delete filterbandcenter
+}
+
+#------------------------------------------------------------------------------#
+
+proc stop_editing {tkcanvas} {
+#    puts stderr "stop_editing $tkcanvas"
+    $tkcanvas bind filtergraph <Motion> {}
+    $tkcanvas itemconfigure filterlines -width 1 -fill $::mutedline_color
+    $tkcanvas configure -cursor arrow
+    $tkcanvas bind bandedges <Enter> {enterband %W}
+    $tkcanvas bind bandedges <Leave> {leaveband %W}
+    delete_centerline $tkcanvas
 }
 
 #------------------------------------------------------------------------------#
@@ -577,7 +595,7 @@ proc filterview_setfilter {tkcanvas filter} {
     set ::currentfiltertype $filter
     if {[lsearch -exact $::filters_with_gain $filter] > -1} {
         $tkcanvas create line $::framex1 $::filtergain $::framex2 $::filtergain \
-            -fill red \
+            -fill $::mutedline_color \
             -tags [list filtergraph filterlines filtergain]
     } else {
         $tkcanvas delete filtergain
@@ -615,15 +633,11 @@ proc filterview_drawme {tkcanvas receive_name} {
 
     # bandwidth box left side
     $tkcanvas create line $::filterx1 $::framey1 $::filterx1 $::framey2 \
-        -fill red \
+        -fill $::mutedline_color \
         -tags [list filtergraph filterlines filterband filterbandleft bandedges]
-    # bandwidth box center
-    $tkcanvas create line $::filtercenter $::framey1 $::filtercenter $::framey2 \
-        -fill "#ffbbbb" \
-        -tags [list filtergraph filterlines filterband filterbandcenter]
     # bandwidth box right side
     $tkcanvas create line $::filterx2 $::framey1 $::filterx2 $::framey2 \
-        -fill red \
+        -fill $::mutedline_color \
         -tags [list filtergraph filterlines filterband filterbandright bandedges]
 
     filterview_setfilter $tkcanvas $::currentfiltertype
