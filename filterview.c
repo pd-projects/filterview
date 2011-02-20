@@ -12,6 +12,7 @@ typedef struct filterview
 
     int         width;
     int         height;
+    t_symbol*   filtertype;
 
     /* IDs for Tk widgets */
     t_symbol*   receive_name;  /* name to bind to to receive callbacks */
@@ -72,6 +73,9 @@ static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
     {
         set_tkwidgets_ids(x, glist);
         post("drawme");
+        if (x->filtertype != &s_)
+            sys_vgui("filterview_setfilter %s %s\n", 
+                     x->canvas_id, x->filtertype->s_name);
         sys_vgui("filterview_setrect %d %d %d %d\n",
                  text_xpix(&x->x_obj, glist), 
                  text_ypix(&x->x_obj, glist),
@@ -87,7 +91,64 @@ static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
     }
 }
 
-static void *filterview_new(void)
+/* set filter type ---------------------------------------------------------- */
+
+static void filterview_allpass(t_filterview *x)
+{
+    x->filtertype = gensym("allpass");
+    sys_vgui("filterview_setfilter %s allpass\n", x->canvas_id);
+}
+
+static void filterview_bandpass(t_filterview *x)
+{
+    x->filtertype = gensym("bandpass");
+    sys_vgui("filterview_setfilter %s bandpass\n", x->canvas_id);
+}
+
+static void filterview_highpass(t_filterview *x)
+{
+    x->filtertype = gensym("highpass");
+    sys_vgui("filterview_setfilter %s highpass\n", x->canvas_id);
+}
+
+static void filterview_highshelf(t_filterview *x)
+{
+    x->filtertype = gensym("highshelf");
+    sys_vgui("filterview_setfilter %s highshelf\n", x->canvas_id);
+}
+
+static void filterview_lowpass(t_filterview *x)
+{
+    x->filtertype = gensym("lowpass");
+    sys_vgui("filterview_setfilter %s lowpass\n", x->canvas_id);
+}
+
+static void filterview_lowshelf(t_filterview *x)
+{
+    x->filtertype = gensym("lowshelf");
+    sys_vgui("filterview_setfilter %s lowshelf\n", x->canvas_id);
+}
+
+static void filterview_notch(t_filterview *x)
+{
+    x->filtertype = gensym("notch");
+    sys_vgui("filterview_setfilter %s notch\n", x->canvas_id);
+}
+
+static void filterview_peaking(t_filterview *x)
+{
+    x->filtertype = gensym("peaking");
+    sys_vgui("filterview_setfilter %s peaking\n", x->canvas_id);
+}
+
+static void filterview_resonant(t_filterview *x)
+{
+    x->filtertype = gensym("resonant");
+    sys_vgui("filterview_setfilter %s resonant\n", x->canvas_id);
+}
+
+/* object and class creation/destruction ----------------------------------- */
+static void *filterview_new(t_symbol* s)
 {
     t_filterview *x = (t_filterview *)pd_new(filterview_class);
     char buf[MAXPDSTRING];
@@ -95,6 +156,7 @@ static void *filterview_new(void)
     post("filterview_new");
     x->width = 300;
     x->height = 200;
+    x->filtertype = s;
     x->x_glist = canvas_getcurrent();
 
 //    sprintf(x->receive_name, "#%lx", x);
@@ -120,8 +182,19 @@ void filterview_setup(void)
                                  (t_newmethod)filterview_new, 
                                  (t_method)filterview_free, 
                                  sizeof(t_filterview), 
-                                 0, 0);
+                                 0, 
+                                 A_DEFSYMBOL,
+                                 0);
 
+    class_addmethod(filterview_class, (t_method)filterview_allpass, gensym("allpass"), 0);
+    class_addmethod(filterview_class, (t_method)filterview_bandpass, gensym("bandpass"), 0);
+    class_addmethod(filterview_class, (t_method)filterview_highpass, gensym("highpass"), 0);
+    class_addmethod(filterview_class, (t_method)filterview_highshelf, gensym("highshelf"), 0);
+    class_addmethod(filterview_class, (t_method)filterview_lowpass, gensym("lowpass"), 0);
+    class_addmethod(filterview_class, (t_method)filterview_lowshelf, gensym("lowshelf"), 0);
+    class_addmethod(filterview_class, (t_method)filterview_notch, gensym("notch"), 0);
+    class_addmethod(filterview_class, (t_method)filterview_peaking, gensym("peaking"), 0);
+    class_addmethod(filterview_class, (t_method)filterview_resonant, gensym("resonant"), 0);
     class_addmethod(filterview_class, (t_method)filterview_biquad_callback,
                     gensym("biquad"), A_FLOAT, A_FLOAT, A_FLOAT, A_FLOAT, A_FLOAT, 0);
 
