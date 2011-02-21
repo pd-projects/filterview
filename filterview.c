@@ -74,20 +74,20 @@ static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
         set_tkwidgets_ids(x, glist);
         post("drawme");
         if (x->filtertype != &s_)
-            sys_vgui("filterview_setfilter %s %s\n", 
+            sys_vgui("filterview::setfilter %s %s\n", 
                      x->canvas_id, x->filtertype->s_name);
-        sys_vgui("filterview_setrect %d %d %d %d\n",
+        sys_vgui("filterview::setrect %d %d %d %d\n",
                  text_xpix(&x->x_obj, glist), 
                  text_ypix(&x->x_obj, glist),
                  text_xpix(&x->x_obj, glist)+x->width, 
                  text_ypix(&x->x_obj, glist)+x->height);
-        sys_vgui("filterview_drawme %s %s\n", x->canvas_id, 
+        sys_vgui("filterview::drawme %s %s\n", x->canvas_id, 
                  x->receive_name->s_name);
     }
     else 
     {
         post("eraseme");
-        sys_vgui("filterview_eraseme %s\n", x->canvas_id);
+        sys_vgui("filterview::eraseme %s\n", x->canvas_id);
     }
 }
 
@@ -96,55 +96,55 @@ static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
 static void filterview_allpass(t_filterview *x)
 {
     x->filtertype = gensym("allpass");
-    sys_vgui("filterview_setfilter %s allpass\n", x->canvas_id);
+    sys_vgui("filterview::setfilter %s allpass\n", x->canvas_id);
 }
 
 static void filterview_bandpass(t_filterview *x)
 {
     x->filtertype = gensym("bandpass");
-    sys_vgui("filterview_setfilter %s bandpass\n", x->canvas_id);
+    sys_vgui("filterview::setfilter %s bandpass\n", x->canvas_id);
 }
 
 static void filterview_highpass(t_filterview *x)
 {
     x->filtertype = gensym("highpass");
-    sys_vgui("filterview_setfilter %s highpass\n", x->canvas_id);
+    sys_vgui("filterview::setfilter %s highpass\n", x->canvas_id);
 }
 
 static void filterview_highshelf(t_filterview *x)
 {
     x->filtertype = gensym("highshelf");
-    sys_vgui("filterview_setfilter %s highshelf\n", x->canvas_id);
+    sys_vgui("filterview::setfilter %s highshelf\n", x->canvas_id);
 }
 
 static void filterview_lowpass(t_filterview *x)
 {
     x->filtertype = gensym("lowpass");
-    sys_vgui("filterview_setfilter %s lowpass\n", x->canvas_id);
+    sys_vgui("filterview::setfilter %s lowpass\n", x->canvas_id);
 }
 
 static void filterview_lowshelf(t_filterview *x)
 {
     x->filtertype = gensym("lowshelf");
-    sys_vgui("filterview_setfilter %s lowshelf\n", x->canvas_id);
+    sys_vgui("filterview::setfilter %s lowshelf\n", x->canvas_id);
 }
 
 static void filterview_notch(t_filterview *x)
 {
     x->filtertype = gensym("notch");
-    sys_vgui("filterview_setfilter %s notch\n", x->canvas_id);
+    sys_vgui("filterview::setfilter %s notch\n", x->canvas_id);
 }
 
 static void filterview_peaking(t_filterview *x)
 {
     x->filtertype = gensym("peaking");
-    sys_vgui("filterview_setfilter %s peaking\n", x->canvas_id);
+    sys_vgui("filterview::setfilter %s peaking\n", x->canvas_id);
 }
 
 static void filterview_resonant(t_filterview *x)
 {
     x->filtertype = gensym("resonant");
-    sys_vgui("filterview_setfilter %s resonant\n", x->canvas_id);
+    sys_vgui("filterview::setfilter %s resonant\n", x->canvas_id);
 }
 
 /* object and class creation/destruction ----------------------------------- */
