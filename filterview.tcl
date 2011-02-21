@@ -2,9 +2,9 @@
 # This line continues for Tcl, but is a single line for 'sh' \
     exec /usr/bin/wish "$0" -- ${1+"$@"}
 
-#catch {console show}
-
 # TODO accept biquad lists on the inlet
+# TODO handle changes in samplerate
+# TODO make Tcl side aware of edit mode so that the object can be selected and moved.  It should not update the graph in editmode
 
 #------------- .mmb edits ----------------
 #
@@ -32,24 +32,13 @@
 #-----------------------------------------
 package require Tk
 
-#set tcl_precision 6  ;# http://wiki.tcl.tk/8401
-
-set lessthan_filtercenter 1
-
-set previousx 0
-set previousy 0
+#------------------------------
+# global variables for all instances
 
 set pi [expr acos(-1)]
 set 2pi [expr 2.0*$pi]
 set LN2 0.69314718
 set samplerate 44100
-
-# coefficients for [biquad~]
-set a1 0
-set a2 0
-set b0 1
-set b1 0
-set b2 0
 
 # colors
 set markercolor "#bbbbcc"
@@ -57,10 +46,25 @@ set mutedline_color "#ffbbbb"
 set selectedline_color "#ff0000"
 
 # allpass, bandpass, highpass, highshelf, lowpass, lowshelf, notch, peaking, resonant
-set currentfiltertype "lowshelf"
 set filters_with_gain [list "highshelf" "lowshelf" "peaking"]
 
+#------------------------------
+# per-instance variables
+set currentfiltertype "lowshelf"
+
 set receive_name "#fv"
+
+set lessthan_filtercenter 1
+
+set previousx 0
+set previousy 0
+
+# coefficients for [biquad~]
+set a1 0
+set a2 0
+set b0 1
+set b1 0
+set b2 0
 
 #------------------------------------------------------------------------------#
 proc mtof {nn} {
@@ -402,6 +406,7 @@ proc allpass {f0pix bwpix} {
 }
 
 #------------------------------------------------------------------------------#
+# move filter control lines
 
 proc moveband {tkcanvas x} {
     set dx [expr $x - $::previousx]
@@ -568,6 +573,12 @@ proc stop_editing {tkcanvas} {
     delete_centerline $tkcanvas
 }
 
+proc filterview_set_for_editmode {mytoplevel} {
+    if {$::editmode($mytoplevel) == 1} {
+    } else {
+    }
+}
+
 #------------------------------------------------------------------------------#
 proc filterview_set_samplerate {sr} {
     set ::samplerate $sr
@@ -658,18 +669,28 @@ proc filterview_drawme {tkcanvas receive_name} {
     stop_editing $tkcanvas
 }
 
-# if not loading within Pd, then create a window and canvas to work with
-if {[info procs "pdtk_post"] eq "pdtk_post"} {
-    pdtk_post "done loading filterview.tcl"
+# sets up an instance of the class
+proc filterview_new {} { 
+}
+
+# sets up the class
+proc filterview_setup {} {
+    bind PatchWindow <<EditMode>> {+filterview_set_for_editmode %W}    
     # check if we are Pd < 0.43, which has no 'pdsend', but a 'pd' coded in C
     if {[info procs "pdsend"] ne "pdsend"} {
         proc pdsend {args} {pd "[join $args { }] ;"}
     }
+}
+
+# if not loading within Pd, then create a window and canvas to work with
+if {[info procs "pdtk_post"] eq "pdtk_post"} {
+    filterview_setup
 } else {
+    # this stuff creates a dev skeleton
+    proc pdsend {args} {puts stderr "pdsend $args"}
     filterview_setrect 30.0 30.0 330.0 230.0
     wm geometry . 400x400+500+40
     canvas .c
     pack .c -side left -expand 1 -fill both
     filterview_drawme .c #filterview
-    proc pdsend {args} {puts stderr "pdsend $args"}
 }
