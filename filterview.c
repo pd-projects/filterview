@@ -208,7 +208,7 @@ void filterview_setup(void)
     filterview_widgetbehavior.w_clickfn    = NULL;
     class_setwidget(filterview_class, &filterview_widgetbehavior);
 //    class_setsavefn(filterview_class, &filterview_save);
-    sys_vgui("eval [read [open %s/filterview.tcl]]\n",
+    sys_vgui("eval [read [open {%s/filterview.tcl}]]\n",
         filterview_class->c_externdir->s_name);
     post("end filterview_setup");
 }
