@@ -705,13 +705,15 @@ proc filterview::set_for_editmode {mytoplevel} {
         $tkcanvas bind $tag <ButtonPress-1> {}
         $tkcanvas bind $tag <ButtonRelease-1> {}
         $tkcanvas bind bandedges <ButtonPress-1> {}
-#        $tkcanvas bind bandedges <ButtonRelease-1> {filterview::stop_editing %W}
+        $tkcanvas bind bandedges <ButtonRelease-1> {}
+        $tkcanvas bind bandedges <Enter> {}
+        $tkcanvas bind bandedges <Leave> {}
     } else {
         # binding is also changed by enter/leave on the band and editmode
         $tkcanvas bind $tag <ButtonPress-1> {filterview::start_move %W %x %y}
         $tkcanvas bind $tag <ButtonRelease-1> {filterview::stop_editing %W}
         $tkcanvas bind bandedges <ButtonPress-1> {filterview::start_changebandwidth %W %x %y}
-#        $tkcanvas bind bandedges <ButtonRelease-1> {filterview::stop_editing %W}
+        $tkcanvas bind bandedges <ButtonRelease-1> {filterview::stop_editing %W}
         reset_frame_location $tkcanvas
     }
 }
@@ -815,12 +817,6 @@ proc filterview::drawme {tkcanvas name tag_from_pd} {
         -tags [list $tag filterlines filterband filterbandright bandedges]
 
     setfilter $tkcanvas $currentfiltertype
-
-    # filtergraph binding is also changed by enter/leave on the band and editmode
-    $tkcanvas bind filtergraph <ButtonPress-1> {filterview::start_move %W %x %y}
-    $tkcanvas bind filtergraph <ButtonRelease-1> {filterview::stop_editing %W}
-    $tkcanvas bind bandedges <ButtonPress-1> {filterview::start_changebandwidth %W %x %y}
-    $tkcanvas bind bandedges <ButtonRelease-1> {filterview::stop_editing %W}
 
     # run to set things up
     stop_editing $tkcanvas
