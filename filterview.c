@@ -16,9 +16,9 @@ typedef struct filterview
 
     /* IDs for Tk widgets */
     t_symbol*   receive_name;  /* name to bind to to receive callbacks */
-	char        canvas_id[MAXPDSTRING];
-    char        widget_id[MAXPDSTRING];
-    
+    char        canvas_id[MAXPDSTRING];
+    char        tag[MAXPDSTRING];
+
     t_outlet*   x_data_outlet;
     t_outlet*   x_status_outlet;
 } t_filterview;
@@ -29,8 +29,8 @@ static t_widgetbehavior filterview_widgetbehavior;
 static void set_tkwidgets_ids(t_filterview* x, t_canvas* canvas)
 {
     x->x_canvas = canvas;
-    sprintf(x->canvas_id,".x%lx.c", (long unsigned int) canvas);
-    sprintf(x->widget_id,"%s.widget%lx", x->canvas_id, (long unsigned int)x);
+    snprintf(x->canvas_id, MAXPDSTRING, ".x%lx.c", (long unsigned int) canvas);
+    snprintf(x->tag, MAXPDSTRING, "T%lx-", (long unsigned int)x);
 }
 
 
@@ -39,6 +39,7 @@ static void filterview_biquad_callback(t_filterview *x, t_symbol *s,
 {
     outlet_list(x->x_data_outlet, s, argc, argv);
 }
+
 /* widgetbehavior */
 
 static void filterview_getrect(t_gobj *z, t_glist *glist,
@@ -59,9 +60,9 @@ static void filterview_displace(t_gobj *z, t_glist *glist, int dx, int dy)
     x->x_obj.te_ypix += dy;
     if (glist_isvisible(glist))
     {
-/*        sys_vgui("%s move %s %d %d\n", 
-                 x->canvas_id->s_name, x->all_tag->s_name, dx, dy);
-        sys_vgui("%s move RSZ %d %d\n", x->canvas_id->s_name, dx, dy);*/
+        sys_vgui("%s move %s %d %d\n",
+                 x->canvas_id, x->tag, dx, dy);
+        sys_vgui("%s move RSZ %d %d\n", x->canvas_id, dx, dy);
         canvas_fixlinesfor(glist_getcanvas(glist), (t_text*) x);
     }
 }
@@ -81,8 +82,8 @@ static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
                  text_ypix(&x->x_obj, glist),
                  text_xpix(&x->x_obj, glist)+x->width, 
                  text_ypix(&x->x_obj, glist)+x->height);
-        sys_vgui("filterview::drawme %s %s\n", x->canvas_id, 
-                 x->receive_name->s_name);
+        sys_vgui("filterview::drawme %s %s %s\n", x->canvas_id,
+                 x->receive_name->s_name, x->tag);
     }
     else 
     {
