@@ -541,10 +541,12 @@ proc filterview::start_move {tkcanvas x y} {
     variable framey2
     variable filtercenter
 
-    $tkcanvas configure -cursor fleur
     $tkcanvas itemconfigure filterlines -width 2 -fill $selectedline_color
     $tkcanvas bind $tag <Motion> "filterview::move %W %x %y"
     create_centerline $tkcanvas $framey1 $framey2 $filtercenter
+    # cursors are set per toplevel window, not in the tkcanvas
+    set mytoplevel [winfo toplevel $tkcanvas]
+    $mytoplevel configure -cursor fleur
 }
 
 proc filterview::move {tkcanvas x y} {
@@ -573,9 +575,11 @@ proc filterview::start_changebandwidth {tkcanvas x y} {
     $tkcanvas bind bandedges <Leave> {}
     $tkcanvas bind bandedges <Enter> {}
     $tkcanvas bind bandedges <Motion> {}
-    $tkcanvas configure -cursor sb_h_double_arrow
     $tkcanvas bind $tag <Motion> {filterview::changebandwidth %W %x %y}
     create_centerline $tkcanvas $framey1 $framey2 $filtercenter
+    # cursors are set per toplevel window, not in the tkcanvas
+    set mytoplevel [winfo toplevel $tkcanvas]
+    $mytoplevel configure -cursor sb_h_double_arrow
 }
 
 proc filterview::changebandwidth {tkcanvas x y} {
@@ -633,10 +637,12 @@ proc filterview::changebandwidth {tkcanvas x y} {
 
 proc filterview::band_cursor {tkcanvas x} {
     variable filtercenter
+    # cursors are set per toplevel window, not in the tkcanvas
+    set mytoplevel [winfo toplevel $tkcanvas]
     if {$x < $filtercenter} {
-        $tkcanvas configure -cursor left_side
+        $mytoplevel configure -cursor left_side
     } else {
-        $tkcanvas configure -cursor right_side
+        $mytoplevel configure -cursor right_side
     }
 }
 
@@ -653,8 +659,10 @@ proc filterview::leaveband {tkcanvas} {
     variable mutedline_color
     $tkcanvas bind $tag <ButtonPress-1> {filterview::start_move %W %x %y}
     $tkcanvas bind bandedges <Motion> {}
-    $tkcanvas configure -cursor arrow
     $tkcanvas itemconfigure filterband -width 1 -fill $mutedline_color
+    # cursors are set per toplevel window, not in the tkcanvas
+    set mytoplevel [winfo toplevel $tkcanvas]
+    $mytoplevel configure -cursor $::cursor_runmode_nothing
 }
 
 #------------------------------------------------------------------------------#
@@ -689,10 +697,12 @@ proc filterview::stop_editing {tkcanvas} {
     variable mutedline_color
     $tkcanvas bind $tag <Motion> {}
     $tkcanvas itemconfigure filterlines -width 1 -fill $mutedline_color
-    $tkcanvas configure -cursor arrow
     $tkcanvas bind bandedges <Enter> {filterview::enterband %W}
     $tkcanvas bind bandedges <Leave> {filterview::leaveband %W}
     delete_centerline $tkcanvas
+    # cursors are set per toplevel window, not in the tkcanvas
+    set mytoplevel [winfo toplevel $tkcanvas]
+    $mytoplevel configure -cursor $::cursor_runmode_nothing
 }
 
 proc filterview::set_for_editmode {mytoplevel} {
