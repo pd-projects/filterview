@@ -108,7 +108,7 @@ proc filterview::drawgraph {tkcanvas} {
         set nn [expr ($x - $framex1)/$framewidth*120+16.766]
         set result [calc_magnatude_phase \
                         [expr $::2pi * [mtof $nn] / $::samplerate] $a1 $a2 $b0 $b1 $b2 \
-                       $framey1 $framey2]
+                        $framey1 $framey2]
         lappend magnatudepoints [lindex $result 0]
         lappend phasepoints [lindex $result 1]
     }
@@ -842,7 +842,7 @@ proc filterview::setup {} {
     if {[llength [info procs ::pdtk_post]] == 0} {
         catch {console show}
         puts stderr "setting up as standalone dev mode!"
-       # this stuff creates a dev skeleton
+        # this stuff creates a dev skeleton
         proc ::pdtk_post {args} {puts stderr "pdtk_post $args"}
         proc ::pdsend {args} {puts stderr "pdsend $args"}
         filterview::setrect 30.0 30.0 330.0 230.0
