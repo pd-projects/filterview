@@ -827,6 +827,16 @@ proc filterview::select {tkcanvas state} {
      }
 }
 
+# sets the biquad coefficients from a list in the first inlet
+proc filterview::coefficients {tkcanvas aa1 aa2 bb0 bb1 bb2} {
+    variable a1 $aa1
+    variable a2 $aa2
+    variable b0 $bb0
+    variable b1 $bb1
+    variable b2 $bb2
+    drawgraph $tkcanvas
+}
+
 # sets up an instance of the class
 proc filterview::new {} { 
 }

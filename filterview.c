@@ -105,6 +105,22 @@ static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
      * the Tk code would not need the samplerate */
 }
 
+/* handle lists of biquad coeffecients -------------------------------------- */
+
+static void filterview_list(t_filterview *x, t_symbol *s, int argc, t_atom *argv)
+{
+    if (argc < 5)
+        pd_error(x, "[filterview] needs 5 float coefficients, ignoring list");
+    t_float a1 = atom_getfloat(argv);
+    t_float a2 = atom_getfloat(argv + 1);
+    t_float b0 = atom_getfloat(argv + 2);
+    t_float b1 = atom_getfloat(argv + 3);
+    t_float b2 = atom_getfloat(argv + 4);
+    sys_vgui("::filterview::coefficients %s %g %g %g %g %g\n",
+             x->canvas_id, a1, a2, b0, b1, b2);
+    filterview_biquad_callback(x, s, argc, argv);
+}
+
 /* set filter type ---------------------------------------------------------- */
 
 static void filterview_allpass(t_filterview *x)
@@ -173,7 +189,7 @@ static void *filterview_new(t_symbol* s)
     x->filtertype = s;
     x->x_glist = canvas_getcurrent();
 
-//    sprintf(x->receive_name, "#%lx", x);
+// TODO    sprintf(x->receive_name, "#%lx", x);
     sprintf(buf, "#filterview");
     x->receive_name = gensym(buf);
     pd_bind(&x->x_obj.ob_pd, x->receive_name);
@@ -211,6 +227,7 @@ void filterview_setup(void)
     class_addmethod(filterview_class, (t_method)filterview_resonant, gensym("resonant"), 0);
     class_addmethod(filterview_class, (t_method)filterview_biquad_callback,
                     gensym("biquad"), A_FLOAT, A_FLOAT, A_FLOAT, A_FLOAT, A_FLOAT, 0);
+    class_addlist(filterview_class, (t_method)filterview_list);
 
     /* widget behavior */
     filterview_widgetbehavior.w_getrectfn  = filterview_getrect;
