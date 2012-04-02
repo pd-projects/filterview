@@ -806,9 +806,12 @@ proc filterview::setup {} {
     }
 
     # if not loading within Pd, then create a window and canvas to work with
-    if {[info procs "pdtk_post"] ne "pdtk_post"} {
-        # this stuff creates a dev skeleton
-        proc pdsend {args} {puts stderr "pdsend $args"}
+    if {[llength [info procs ::pdtk_post]] == 0} {
+        catch {console show}
+        puts stderr "setting up as standalone dev mode!"
+       # this stuff creates a dev skeleton
+        proc ::pdtk_post {args} {puts stderr "pdtk_post $args"}
+        proc ::pdsend {args} {puts stderr "pdsend $args"}
         filterview::setrect 30.0 30.0 330.0 230.0
         wm geometry . 400x400+500+40
         canvas .c
