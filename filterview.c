@@ -35,10 +35,9 @@ static void set_tkwidgets_ids(t_filterview* x, t_canvas* canvas)
     snprintf(x->tag, MAXPDSTRING, "T%lx-", (long unsigned int)x);
 }
 
-static void filterview_biquad_callback(t_filterview *x, t_symbol *s,
-                                       int argc, t_atom* argv)
+static void filterview_biquad_callback(t_filterview *x, t_symbol *s, int argc, t_atom* argv)
 {
-    outlet_list(x->x_data_outlet, s, argc, argv);
+    outlet_list(x->x_data_outlet, &s_list, 5, argv);
 }
 
 /* widgetbehavior */
@@ -80,7 +79,6 @@ static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
     if (vis)
     {
         set_tkwidgets_ids(x, glist);
-        post("drawme");
         if (x->filtertype != &s_)
             sys_vgui("filterview::setfilter %s %s\n",
                      x->canvas_id, x->filtertype->s_name);
@@ -94,7 +92,6 @@ static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
     }
     else
     {
-        post("eraseme");
         sys_vgui("filterview::eraseme %s\n", x->canvas_id);
     }
     /* send the current samplerate to the GUI for calculation of biquad coeffs*/
@@ -111,14 +108,17 @@ static void filterview_list(t_filterview *x, t_symbol *s, int argc, t_atom *argv
 {
     if (argc < 5)
         pd_error(x, "[filterview] needs 5 float coefficients, ignoring list");
-    t_float a1 = atom_getfloat(argv);
-    t_float a2 = atom_getfloat(argv + 1);
-    t_float b0 = atom_getfloat(argv + 2);
-    t_float b1 = atom_getfloat(argv + 3);
-    t_float b2 = atom_getfloat(argv + 4);
-    sys_vgui("::filterview::coefficients %s %g %g %g %g %g\n",
-             x->canvas_id, a1, a2, b0, b1, b2);
-    filterview_biquad_callback(x, s, argc, argv);
+    else
+    {
+        t_float a1 = atom_getfloat(argv);
+        t_float a2 = atom_getfloat(argv + 1);
+        t_float b0 = atom_getfloat(argv + 2);
+        t_float b1 = atom_getfloat(argv + 3);
+        t_float b2 = atom_getfloat(argv + 4);
+        sys_vgui("::filterview::coefficients %s %g %g %g %g %g\n",
+                 x->canvas_id, a1, a2, b0, b1, b2);
+        filterview_biquad_callback(x, s, argc, argv);
+    }
 }
 
 /* set filter type ---------------------------------------------------------- */
@@ -183,7 +183,6 @@ static void *filterview_new(t_symbol* s)
     t_filterview *x = (t_filterview *)pd_new(filterview_class);
     char buf[MAXPDSTRING];
 
-    post("filterview_new");
     x->width = 300;
     x->height = 200;
     x->filtertype = s;
@@ -207,7 +206,6 @@ static void filterview_free(t_filterview *x)
 
 void filterview_setup(void)
 {
-    post("filterview_setup");
     filterview_class = class_new(gensym("filterview"),
                                  (t_newmethod)filterview_new,
                                  (t_method)filterview_free,
@@ -226,7 +224,7 @@ void filterview_setup(void)
     class_addmethod(filterview_class, (t_method)filterview_peaking, gensym("peaking"), 0);
     class_addmethod(filterview_class, (t_method)filterview_resonant, gensym("resonant"), 0);
     class_addmethod(filterview_class, (t_method)filterview_biquad_callback,
-                    gensym("biquad"), A_FLOAT, A_FLOAT, A_FLOAT, A_FLOAT, A_FLOAT, 0);
+                    gensym("biquad"), A_GIMME, 0);
     class_addlist(filterview_class, (t_method)filterview_list);
 
     /* widget behavior */
@@ -241,6 +239,5 @@ void filterview_setup(void)
 //    class_setsavefn(filterview_class, &filterview_save);
     sys_vgui("eval [read [open {%s/filterview.tcl}]]\n",
              filterview_class->c_externdir->s_name);
-    post("end filterview_setup");
 }
 
