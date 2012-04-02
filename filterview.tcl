@@ -821,6 +821,24 @@ proc filterview::drawme {tkcanvas name tag_from_pd} {
         -fill $mutedline_color \
         -tags [list $tag filterlines filterband filterbandright bandedges]
 
+    # inlet/outlet
+    set nletx [expr $framex1 + 7]
+    set inlety [expr $framey1 + 2]
+    set outletx [expr $framex2 - 7]
+    set outlety [expr $framey2 - 2]
+    #inlet0
+    $tkcanvas create line $framex1 $framey1 $nletx $framey1 \
+        $nletx $inlety $framex1 $inlety $framex1 $framey1 \
+        -tags [list $tag nlet]
+    #outlet0
+    $tkcanvas create line $framex1 $framey2 $nletx $framey2 \
+        $nletx $outlety $framex1 $outlety $framex1 $framey1 \
+        -tags [list $tag nlet]
+    #outlet1
+    $tkcanvas create line $outletx $framey2 $framex2 $framey2 \
+        $framex2 $outlety $outletx $outlety $outletx $framey2 \
+        -tags [list $tag nlet]
+
     setfilter $tkcanvas $currentfiltertype
 
     # run to set things up
