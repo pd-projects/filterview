@@ -67,6 +67,12 @@ static void filterview_displace(t_gobj *z, t_glist *glist, int dx, int dy)
     }
 }
 
+static void filterview_select(t_gobj *z, t_glist *glist, int state)
+{
+    t_filterview *x = (t_filterview *)z;
+    sys_vgui("::filterview::select %s %d\n", x->canvas_id, state);
+}
+
 static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
 {
     t_filterview* x = (t_filterview*)z;
@@ -202,7 +208,7 @@ void filterview_setup(void)
     /* widget behavior */
     filterview_widgetbehavior.w_getrectfn  = filterview_getrect;
     filterview_widgetbehavior.w_displacefn = filterview_displace;
-    filterview_widgetbehavior.w_selectfn   = NULL;
+    filterview_widgetbehavior.w_selectfn   = filterview_select;
     filterview_widgetbehavior.w_activatefn = NULL;
     filterview_widgetbehavior.w_deletefn   = NULL;
     filterview_widgetbehavior.w_visfn      = filterview_vis;

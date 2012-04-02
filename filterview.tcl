@@ -45,6 +45,7 @@ namespace eval filterview:: {
     
     # colors
     variable markercolor "#bbbbcc"
+    variable selectcolor "blue"
     variable mutedline_color "#ffbbbb"
     variable selectedline_color "#ff0000"
 
@@ -682,7 +683,6 @@ proc filterview::reset_frame_location {tkcanvas} {
     variable framey1 [lindex $coordslist 1]
     variable framex2 [lindex $coordslist 2]
     variable framey2 [lindex $coordslist 3]
-    puts stderr "\n\n\nRESET FRAME [$tkcanvas coords filterframe]\n\n\n"
 }
 
 proc filterview::stop_editing {tkcanvas} {
@@ -699,7 +699,6 @@ proc filterview::stop_editing {tkcanvas} {
 proc filterview::set_for_editmode {mytoplevel} {
     variable tag
     set tkcanvas [tkcanvas_name $mytoplevel]
-    pdtk_post "filterview::set_for_editmode $mytoplevel\n"
     if {$::editmode($mytoplevel) == 1} {
         # disable the graph interaction while editing
         $tkcanvas bind $tag <ButtonPress-1> {}
@@ -820,6 +819,16 @@ proc filterview::drawme {tkcanvas name tag_from_pd} {
 
     # run to set things up
     stop_editing $tkcanvas
+}
+
+proc filterview::select {tkcanvas state} {
+    variable selectcolor
+    variable markercolor
+    if {$state} {
+        $tkcanvas itemconfigure filterframe -outline $selectcolor -width 2
+     } else {
+        $tkcanvas itemconfigure filterframe -outline $markercolor -width 1
+     }
 }
 
 # sets up an instance of the class
