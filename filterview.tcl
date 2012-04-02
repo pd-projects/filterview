@@ -783,7 +783,7 @@ proc filterview::drawme {tkcanvas name} {
 
     setfilter $tkcanvas $currentfiltertype
 
-    # filtergraph binding is also changed by enter/leave on the band
+    # filtergraph binding is also changed by enter/leave on the band and editmode
     $tkcanvas bind filtergraph <ButtonPress-1> {filterview::start_move %W %x %y}
     $tkcanvas bind filtergraph <ButtonRelease-1> {filterview::stop_editing %W}
     $tkcanvas bind bandedges <ButtonPress-1> {filterview::start_changebandwidth %W %x %y}
@@ -801,8 +801,8 @@ proc filterview::new {} {
 proc filterview::setup {} {
     bind PatchWindow <<EditMode>> {+filterview::set_for_editmode %W}    
     # check if we are Pd < 0.43, which has no 'pdsend', but a 'pd' coded in C
-    if {[info procs "pdsend"] ne "pdsend"} {
-        proc pdsend {args} {pd "[join $args { }] ;"}
+    if {[llength [info procs ::pdsend]] == 0} {
+        proc ::pdsend {args} {pd "[join $args { }] ;"}
     }
 
     # if not loading within Pd, then create a window and canvas to work with
