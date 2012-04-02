@@ -3,8 +3,7 @@
     exec /usr/bin/wish "$0" -- ${1+"$@"}
 
 # TODO accept biquad lists on the inlet
-# TODO handle changes in samplerate
-# TODO make Tcl side aware of edit mode so that the object can be selected and moved.  It should not update the graph in editmode
+# TODO handle changes in samplerate using [block~]
 # TODO make Tk tags local to each instance...
 
 #------------- .mmb edits ----------------
@@ -718,9 +717,6 @@ proc filterview::set_for_editmode {mytoplevel} {
 }
 
 #------------------------------------------------------------------------------#
-proc filterview::set_samplerate {sr} {
-    set ::samplerate $sr
-}
 
 proc filterview::setrect {x1 y1 x2 y2} {
     # convert these all to floats so the math works properly

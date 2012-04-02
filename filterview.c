@@ -26,13 +26,14 @@ typedef struct filterview
 t_class *filterview_class;
 static t_widgetbehavior filterview_widgetbehavior;
 
+/* time to set up! */
+
 static void set_tkwidgets_ids(t_filterview* x, t_canvas* canvas)
 {
     x->x_canvas = canvas;
     snprintf(x->canvas_id, MAXPDSTRING, ".x%lx.c", (long unsigned int) canvas);
     snprintf(x->tag, MAXPDSTRING, "T%lx-", (long unsigned int)x);
 }
-
 
 static void filterview_biquad_callback(t_filterview *x, t_symbol *s,
                                        int argc, t_atom* argv)
@@ -96,6 +97,12 @@ static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
         post("eraseme");
         sys_vgui("filterview::eraseme %s\n", x->canvas_id);
     }
+    /* send the current samplerate to the GUI for calculation of biquad coeffs*/
+    t_float samplerate = sys_getsr();
+    if (samplerate > 0)  /* samplerate is sometimes 0, ignore that */
+        sys_vgui("set ::samplerate %.0f\n", samplerate);
+    /* TODO ideally, this would take into account [block~] settings or
+     * the Tk code would not need the samplerate */
 }
 
 /* set filter type ---------------------------------------------------------- */
