@@ -449,7 +449,6 @@ proc filterview::allpass {my f0pix bwpix} {
 # move filter control lines
 
 proc filterview::moveband {my x} {
-    puts stderr "filterview::moveband $my $x"
     variable ${my}::tkcanvas
     variable ${my}::tag
     variable ${my}::previousx
@@ -484,7 +483,6 @@ proc filterview::moveband {my x} {
 }
 
 proc filterview::movegain {my y} {
-    puts stderr "filterview::movegain $my $y"
     variable ${my}::tkcanvas
     variable ${my}::previousy
     variable ${my}::framex1
@@ -509,7 +507,6 @@ proc filterview::movegain {my y} {
 # move the filter
 
 proc filterview::start_move {my x y} {
-    puts stderr "filterview::start_move $my $x $y"
     variable ${my}::tkcanvas
     variable ${my}::tag
     variable ${my}::previousx $x
@@ -528,7 +525,6 @@ proc filterview::start_move {my x y} {
 }
 
 proc filterview::move {my x y} {
-    puts stderr "filterview::move $my $x $y"
     moveband $my $x
     movegain $my $y
     update_coefficients $my
@@ -538,7 +534,6 @@ proc filterview::move {my x y} {
 # change the filter
 
 proc filterview::start_changebandwidth {my x y} {
-    puts stderr "filterview::start_changebandwidth $my $x $y"
     variable ${my}::tkcanvas
     variable ${my}::tag
     variable ${my}::previousx $x
@@ -561,11 +556,9 @@ proc filterview::start_changebandwidth {my x y} {
     # cursors are set per toplevel window, not in the tkcanvas
     set mytoplevel [winfo toplevel $tkcanvas]
     $mytoplevel configure -cursor sb_h_double_arrow
-    puts stderr "END filterview::start_changebandwidth $my $x $y"
 }
 
 proc filterview::changebandwidth {my x y} {
-#    puts stderr "filterview::changebandwidth $my $x $y"
     variable ${my}::tkcanvas
     variable ${my}::tag
     variable ${my}::previousx
@@ -633,7 +626,6 @@ proc filterview::band_cursor {my x} {
 }
 
 proc filterview::enterband {my} {
-    puts stderr "filterview::enterband $my"
     variable ${my}::tkcanvas
     variable ${my}::tag
     variable selectedline_color
@@ -657,7 +649,6 @@ proc filterview::leaveband {my} {
 #------------------------------------------------------------------------------#
 
 proc filterview::create_centerline {my y1 y2 centery} {
-    puts stderr "filterview::create_centerline $my $y1 $y2 $centery"
     variable ${my}::tkcanvas
     variable ${my}::tag
     variable mutedline_color
@@ -668,7 +659,6 @@ proc filterview::create_centerline {my y1 y2 centery} {
 }
 
 proc filterview::delete_centerline {my} {
-    puts stderr "filterview::delete_centerline $my"
     variable ${my}::tkcanvas
     variable ${my}::tag
     $tkcanvas delete bandcenter$tag
@@ -679,11 +669,9 @@ proc filterview::delete_centerline {my} {
 # Tcl doesn't get the frame location from Pd in filterview, so we
 # measure the current frame location and reset the frame x/y variables.
 proc filterview::reset_frame_location {my} {
-    puts stderr "filterview::reset_frame_location $my"
     variable ${my}::tkcanvas
     variable ${my}::tag
     set coordslist [$tkcanvas coords frame$tag]
-    puts stderr "coordslist $coordslist"
     if {[llength $coordslist] == 4} {
         variable ${my}::framex1 [lindex $coordslist 0]
         variable ${my}::framey1 [lindex $coordslist 1]
@@ -693,13 +681,12 @@ proc filterview::reset_frame_location {my} {
 }
 
 proc filterview::stop_editing {my} {
-    puts stderr "filterview::stop_editing $my"
     variable ${my}::tkcanvas
     variable ${my}::tag
     variable mutedline_color
     $tkcanvas bind $tag <Motion> {}
     $tkcanvas itemconfigure lines$tag -width 1 -fill $mutedline_color
-    $tkcanvas bind bandedges$tag <Enter> "puts {Enter bandedges$tag};filterview::enterband $my"
+    $tkcanvas bind bandedges$tag <Enter> "filterview::enterband $my"
     $tkcanvas bind bandedges$tag <Leave> "filterview::leaveband $my"
     delete_centerline $my
     # cursors are set per toplevel window, not in the tkcanvas
@@ -708,7 +695,6 @@ proc filterview::stop_editing {my} {
 }
 
 proc filterview::set_for_editmode {mytoplevel} {
-    puts stderr "filterview::set_for_editmode $mytoplevel"
     variable mys_in_tkcanvas
     set tkcanvas [tkcanvas_name $mytoplevel]
     if {$::editmode($mytoplevel) == 1} {
@@ -728,7 +714,6 @@ proc filterview::set_for_editmode {mytoplevel} {
         if {[array names mys_in_tkcanvas -exact $tkcanvas] eq $tkcanvas} {
             foreach my $mys_in_tkcanvas($tkcanvas) {
                 variable ${my}::tag
-                puts stderr "enabling interaction: $tag"
                 $tkcanvas bind $tag <ButtonPress-1> \
                     "filterview::start_move $my %x %y"
                 $tkcanvas bind $tag <ButtonRelease-1> \
@@ -746,7 +731,6 @@ proc filterview::set_for_editmode {mytoplevel} {
 #------------------------------------------------------------------------------#
 
 proc filterview::init_instance {my canvas name t x1 y1 x2 y2} {
-    puts stderr "filterview::init_instance $my $canvas $name $t $x1 $y1 $x2 $y2"
     namespace eval $my {
         #------------------------------
         # per-instance variables
@@ -769,14 +753,12 @@ proc filterview::init_instance {my canvas name t x1 y1 x2 y2} {
     variable ${my}::tkcanvas $canvas
     variable ${my}::receive_name $name
     variable ${my}::tag $t
-    puts stderr "DID INIT? $tkcanvas $receive_name $tag"
 
     # convert these all to floats so the math works properly
     variable ${my}::framex1 [expr $x1 * 1.0]
     variable ${my}::framey1 [expr $y1 * 1.0]
     variable ${my}::framex2 [expr $x2 * 1.0]
     variable ${my}::framey2 [expr $y2 * 1.0]
-    puts stderr "DID INIT FRAME? $framex1 $framey1 $framex2 $framey2"
     
     variable ${my}::midpoint [expr (($framey2 - $framey1) / 2) + $framey1]
     variable ${my}::hzperpixel [expr 20000.0 / ($framex2 - $framex1)]
@@ -812,7 +794,6 @@ proc filterview::setfiltertype {my filtertype} {
 
     variable ${my}::framey1
     variable ${my}::framey2
-    puts stderr "setfiltertype frame $framex1 $framey1 $framex2 $framey2"
 
     if {[lsearch -exact $filters_with_gain $filtertype] > -1} {
         $tkcanvas create line $framex1 $filtergain $framex2 $filtergain \
@@ -898,7 +879,6 @@ proc filterview::drawme {my} {
     # run to set things up
     stop_editing $my
     lappend mys_in_tkcanvas($tkcanvas) $my
-    puts stderr "ARRAY [array names mys_in_tkcanvas]"
 }
 
 proc filterview::select {my state} {
@@ -947,7 +927,6 @@ proc filterview::setup {} {
         # this stuff creates a dev skeleton
         set ::cursor_runmode_nothing arrow
         array set ::editmode [list $mytoplevel 0]
-        puts stderr "ARRAY ::editmode : [array names ::editmode]"
         array set filterview::mys_in_tkcanvas [list $tkcanvas $my]
         proc ::pdtk_post {args} {puts stderr "pdtk_post $args"}
         proc ::pdsend {args} {puts stderr "pdsend $args"}
