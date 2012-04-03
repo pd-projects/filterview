@@ -38,9 +38,10 @@ set 2pi [expr 2.0*$pi]
 set LN2 0.69314718
 set samplerate 44100
 
+# global variables for all instances
 namespace eval filterview:: {
-    #------------------------------
-    # global variables for all instances
+    # array of 'my' instance IDs in a given tkcanvas
+    variable mys_in_tkcanvas
     
     # colors
     variable markercolor "#bbbbcc"
@@ -50,39 +51,6 @@ namespace eval filterview:: {
 
     # allpass, bandpass, highpass, highshelf, lowpass, lowshelf, notch, peaking, resonant
     variable filters_with_gain [list "highshelf" "lowshelf" "peaking"]
-
-    #------------------------------
-    # per-instance variables
-    variable currentfiltertype "peaking"
-    variable receive_name
-    variable tag ""
-
-    variable previousx 0
-    variable previousy 0
-
-    variable framex1 0
-    variable framey1 0
-    variable framex2 0
-    variable framey2 0
-    
-    variable midpoint 0
-    variable hzperpixel 0
-    variable magnatudeperpixel 0
-    
-    variable filterx1 0
-    variable filterx2 0
-
-    variable filtergain 0
-    variable filterwidth 0
-    variable filtercenter 0
-    variable lessthan_filtercenter 1
-
-    # coefficients for [biquad~]
-    variable a1 0
-    variable a2 0
-    variable b0 1
-    variable b1 0
-    variable b2 0
 }
 
 #------------------------------------------------------------------------------#
@@ -90,16 +58,17 @@ proc filterview::mtof {nn} {
     return [expr pow(2.0, ($nn-45)/12.0)*110.0]
 }
 
-proc filterview::drawgraph {tkcanvas} {
-    variable framex1
-    variable framey1
-    variable framex2
-    variable framey2
-    variable a1
-    variable a2
-    variable b0
-    variable b1
-    variable b2
+proc filterview::drawgraph {my} {
+    variable ${my}::tkcanvas
+    variable ${my}::framex1
+    variable ${my}::framey1
+    variable ${my}::framex2
+    variable ${my}::framey2
+    variable ${my}::a1
+    variable ${my}::a2
+    variable ${my}::b0
+    variable ${my}::b1
+    variable ${my}::b2
 
     set framewidth [expr int($framex2 - $framex1)]
     for {set x [expr int($framex1)]} {$x <= $framex2} {incr x [expr $framewidth/40]} {
@@ -118,23 +87,24 @@ proc filterview::drawgraph {tkcanvas} {
     $tkcanvas coords phaseline $phasepoints
 }
 
-proc filterview::update_coefficients {tkcanvas} {
-    variable receive_name
-    variable currentfiltertype
-    variable filtercenter
-    variable filterwidth
-    variable a1
-    variable a2
-    variable b0
-    variable b1
-    variable b2
+proc filterview::update_coefficients {my} {
+    variable ${my}::tkcanvas
+    variable ${my}::receive_name
+    variable ${my}::currentfiltertype
+    variable ${my}::filtercenter
+    variable ${my}::filterwidth
+    variable ${my}::a1
+    variable ${my}::a2
+    variable ${my}::b0
+    variable ${my}::b1
+    variable ${my}::b2
 
     # run the calc for a given filter type first
-    $currentfiltertype $filtercenter $filterwidth
+    $currentfiltertype $my $filtercenter $filterwidth
     # send the result to pd
     pdsend "$receive_name biquad $a1 $a2 $b0 $b1 $b2"
     # update the graph
-    drawgraph $tkcanvas
+    drawgraph $my
 }
 
 #------------------------------------------------------------------------------#
@@ -207,9 +177,9 @@ proc filterview::e_alphaq {q omega} {
 # lowpass
 #    f0 = frequency in Hz
 #    bw = bandwidth where 1 is an octave
-proc filterview::lowpass {f0pix bwpix} {
-    variable framex1
-    variable framex2
+proc filterview::lowpass {my f0pix bwpix} {
+    variable ${my}::framex1
+    variable ${my}::framex2
 
     set nn [expr ($f0pix - $framex1)/($framex2-$framex1)*120+16.766]
     set nn2 [expr ($bwpix+$f0pix - $framex1)/($framex2-$framex1)*120+16.766] 
@@ -233,17 +203,17 @@ proc filterview::lowpass {f0pix bwpix} {
 #        set b0 1; set b1 0; set b2 0
 #    }
 
-    set filterview::a1 [expr -$a1/$a0]
-    set filterview::a2 [expr -$a2/$a0]
-    set filterview::b0 [expr $b0/$a0]
-    set filterview::b1 [expr $b1/$a0]
-    set filterview::b2 [expr $b2/$a0]
+    set ${my}::a1 [expr -$a1/$a0]
+    set ${my}::a2 [expr -$a2/$a0]
+    set ${my}::b0 [expr $b0/$a0]
+    set ${my}::b1 [expr $b1/$a0]
+    set ${my}::b2 [expr $b2/$a0]
 }
 
 # highpass
-proc filterview::highpass {f0pix bwpix} {
-    variable framex1
-    variable framex2
+proc filterview::highpass {my f0pix bwpix} {
+    variable ${my}::framex1
+    variable ${my}::framex2
 
     set nn [expr ($f0pix - $framex1)/($framex2-$framex1)*120+16.766]
     set nn2 [expr ($bwpix+$f0pix - $framex1)/($framex2-$framex1)*120+16.766] 
@@ -259,17 +229,17 @@ proc filterview::highpass {f0pix bwpix} {
     set a1 [expr -2.0*cos($omega)]
     set a2 [expr 1.0 - $alpha]
     
-    set ::filterview::a1 [expr -$a1/$a0]
-    set ::filterview::a2 [expr -$a2/$a0]
-    set ::filterview::b0 [expr $b0/$a0]
-    set ::filterview::b1 [expr $b1/$a0]
-    set ::filterview::b2 [expr $b2/$a0]
+    set ${my}::a1 [expr -$a1/$a0]
+    set ${my}::a2 [expr -$a2/$a0]
+    set ${my}::b0 [expr $b0/$a0]
+    set ${my}::b1 [expr $b1/$a0]
+    set ${my}::b2 [expr $b2/$a0]
 }
 
 #bandpass
-proc filterview::bandpass {f0pix bwpix} {
-    variable framex1
-    variable framex2
+proc filterview::bandpass {my f0pix bwpix} {
+    variable ${my}::framex1
+    variable ${my}::framex2
 
     set nn [expr ($f0pix - $framex1)/($framex2-$framex1)*120+16.766]
     set nn2 [expr ($bwpix+$f0pix - $framex1)/($framex2-$framex1)*120+16.766] 
@@ -285,17 +255,17 @@ proc filterview::bandpass {f0pix bwpix} {
     set a1 [expr -2.0*cos($omega)]
     set a2 [expr 1.0 - $alpha]
     
-    set ::filterview::a1 [expr -$a1/$a0]
-    set ::filterview::a2 [expr -$a2/$a0]
-    set ::filterview::b0 [expr $b0/$a0]
-    set ::filterview::b1 [expr $b1/$a0]
-    set ::filterview::b2 [expr $b2/$a0]
+    set ${my}::a1 [expr -$a1/$a0]
+    set ${my}::a2 [expr -$a2/$a0]
+    set ${my}::b0 [expr $b0/$a0]
+    set ${my}::b1 [expr $b1/$a0]
+    set ${my}::b2 [expr $b2/$a0]
 }
 
 #resonant
-proc filterview::resonant {f0pix bwpix} {
-    variable framex1
-    variable framex2
+proc filterview::resonant {my f0pix bwpix} {
+    variable ${my}::framex1
+    variable ${my}::framex2
 
     set nn [expr ($f0pix - $framex1)/($framex2-$framex1)*120+16.766]
     set nn2 [expr ($bwpix+$f0pix - $framex1)/($framex2-$framex1)*120+16.766] 
@@ -311,17 +281,17 @@ proc filterview::resonant {f0pix bwpix} {
     set a1 [expr -2.0*cos($omega)]
     set a2 [expr 1.0 - $alpha]
     
-    set ::filterview::a1 [expr -$a1/$a0]
-    set ::filterview::a2 [expr -$a2/$a0]
-    set ::filterview::b0 [expr $b0/$a0]
-    set ::filterview::b1 [expr $b1/$a0]
-    set ::filterview::b2 [expr $b2/$a0]
+    set ${my}::a1 [expr -$a1/$a0]
+    set ${my}::a2 [expr -$a2/$a0]
+    set ${my}::b0 [expr $b0/$a0]
+    set ${my}::b1 [expr $b1/$a0]
+    set ${my}::b2 [expr $b2/$a0]
 }
 
 #notch
-proc filterview::notch {f0pix bwpix} {
-    variable framex1
-    variable framex2
+proc filterview::notch {my f0pix bwpix} {
+    variable ${my}::framex1
+    variable ${my}::framex2
 
     set nn [expr ($f0pix - $framex1)/($framex2-$framex1)*120+16.766]
     set nn2 [expr ($bwpix+$f0pix - $framex1)/($framex2-$framex1)*120+16.766] 
@@ -337,20 +307,20 @@ proc filterview::notch {f0pix bwpix} {
     set a1 $b1
     set a2 [expr 1.0 - $alpha]
     
-    set ::filterview::a1 [expr -$a1/$a0]
-    set ::filterview::a2 [expr -$a2/$a0]
-    set ::filterview::b0 [expr $b0/$a0]
-    set ::filterview::b1 [expr $b1/$a0]
-    set ::filterview::b2 [expr $b2/$a0]
+    set ${my}::a1 [expr -$a1/$a0]
+    set ${my}::a2 [expr -$a2/$a0]
+    set ${my}::b0 [expr $b0/$a0]
+    set ${my}::b1 [expr $b1/$a0]
+    set ${my}::b2 [expr $b2/$a0]
 }
 
 #peaking
-proc filterview::peaking {f0pix bwpix} {
-    variable framex1
-    variable framey1
-    variable framex2
-    variable framey2
-    variable filtergain
+proc filterview::peaking {my f0pix bwpix} {
+    variable ${my}::framex1
+    variable ${my}::framey1
+    variable ${my}::framex2
+    variable ${my}::framey2
+    variable ${my}::filtergain
 
     set nn [expr ($f0pix - $framex1)/($framex2-$framex1)*120+16.766]
     set nn2 [expr ($bwpix+$f0pix - $framex1)/($framex2-$framex1)*120+16.766] 
@@ -369,20 +339,20 @@ proc filterview::peaking {f0pix bwpix} {
     set a1 $b1
     set a2 [expr 1.0 - $alphadivamp]
     
-    set ::filterview::a1 [expr -$a1/$a0]
-    set ::filterview::a2 [expr -$a2/$a0]
-    set ::filterview::b0 [expr $b0/$a0]
-    set ::filterview::b1 [expr $b1/$a0]
-    set ::filterview::b2 [expr $b2/$a0]
+    set ${my}::a1 [expr -$a1/$a0]
+    set ${my}::a2 [expr -$a2/$a0]
+    set ${my}::b0 [expr $b0/$a0]
+    set ${my}::b1 [expr $b1/$a0]
+    set ${my}::b2 [expr $b2/$a0]
 }
 
 #lowshelf
-proc filterview::lowshelf {f0pix bwpix} {
-    variable framex1
-    variable framey1
-    variable framex2
-    variable framey2
-    variable filtergain
+proc filterview::lowshelf {my f0pix bwpix} {
+    variable ${my}::framex1
+    variable ${my}::framey1
+    variable ${my}::framex2
+    variable ${my}::framey2
+    variable ${my}::filtergain
 
     set nn [expr ($f0pix - $framex1)/($framex2-$framex1)*120+16.766]
     set f [mtof $nn]
@@ -404,20 +374,20 @@ proc filterview::lowshelf {f0pix bwpix} {
     set a1 [expr -2.0*($ampmin + $ampplus*$cosomega)]
     set a2 [expr $ampplus + $ampmin*$cosomega - $alphamod]
     
-    set ::filterview::a1 [expr -$a1/$a0]
-    set ::filterview::a2 [expr -$a2/$a0]
-    set ::filterview::b0 [expr $b0/$a0]
-    set ::filterview::b1 [expr $b1/$a0]
-    set ::filterview::b2 [expr $b2/$a0]
+    set ${my}::a1 [expr -$a1/$a0]
+    set ${my}::a2 [expr -$a2/$a0]
+    set ${my}::b0 [expr $b0/$a0]
+    set ${my}::b1 [expr $b1/$a0]
+    set ${my}::b2 [expr $b2/$a0]
 }
 
 #highshelf
-proc filterview::highshelf {f0pix bwpix} {
-    variable framex1
-    variable framey1
-    variable framex2
-    variable framey2
-    variable filtergain
+proc filterview::highshelf {my f0pix bwpix} {
+    variable ${my}::framex1
+    variable ${my}::framey1
+    variable ${my}::framex2
+    variable ${my}::framey2
+    variable ${my}::filtergain
 
     set nn [expr ($f0pix - $framex1)/($framex2-$framex1)*120+16.766]
     set nn2 [expr ($bwpix+$f0pix - $framex1)/($framex2-$framex1)*120+16.766] 
@@ -440,17 +410,17 @@ proc filterview::highshelf {f0pix bwpix} {
     set a1 [expr 2.0*($ampmin - $ampplus*$cosomega)]
     set a2 [expr $ampplus - $ampmin*$cosomega - $alphamod]
     
-    set ::filterview::a1 [expr -$a1/$a0]
-    set ::filterview::a2 [expr -$a2/$a0]
-    set ::filterview::b0 [expr $b0/$a0]
-    set ::filterview::b1 [expr $b1/$a0]
-    set ::filterview::b2 [expr $b2/$a0]
+    set ${my}::a1 [expr -$a1/$a0]
+    set ${my}::a2 [expr -$a2/$a0]
+    set ${my}::b0 [expr $b0/$a0]
+    set ${my}::b1 [expr $b1/$a0]
+    set ${my}::b2 [expr $b2/$a0]
 }
 
 #allpass
-proc filterview::allpass {f0pix bwpix} {
-    variable framex1
-    variable framex2
+proc filterview::allpass {my f0pix bwpix} {
+    variable ${my}::framex1
+    variable ${my}::framex2
 
     set nn [expr ($f0pix - $framex1)/($framex2-$framex1)*120+16.766]
     set nn2 [expr ($bwpix+$f0pix - $framex1)/($framex2-$framex1)*120+16.766] 
@@ -467,26 +437,28 @@ proc filterview::allpass {f0pix bwpix} {
     set a1 $b1
     set a2 $b0
     
-    set ::filterview::a1 [expr -$a1/$a0]
-    set ::filterview::a2 [expr -$a2/$a0]
-    set ::filterview::b0 [expr $b0/$a0]
-    set ::filterview::b1 [expr $b1/$a0]
-    set ::filterview::b2 [expr $b2/$a0]
+    set ${my}::a1 [expr -$a1/$a0]
+    set ${my}::a2 [expr -$a2/$a0]
+    set ${my}::b0 [expr $b0/$a0]
+    set ${my}::b1 [expr $b1/$a0]
+    set ${my}::b2 [expr $b2/$a0]
 }
 
 #------------------------------------------------------------------------------#
 # move filter control lines
 
-proc filterview::moveband {tkcanvas x} {
-    variable previousx
-    variable framex1
-    variable framey1
-    variable framex2
-    variable framey2
-    variable filterx1
-    variable filterx2
-    variable filterwidth
-    variable filtercenter
+proc filterview::moveband {my x} {
+    puts stderr "filterview::moveband $my $x"
+    variable ${my}::tkcanvas
+    variable ${my}::previousx
+    variable ${my}::framex1
+    variable ${my}::framey1
+    variable ${my}::framex2
+    variable ${my}::framey2
+    variable ${my}::filterx1
+    variable ${my}::filterx2
+    variable ${my}::filterwidth
+    variable ${my}::filtercenter
 
     set dx [expr $x - $previousx]
     set x1 [expr $filterx1 + $dx]
@@ -509,13 +481,15 @@ proc filterview::moveband {tkcanvas x} {
     set previousx $x
 }
 
-proc filterview::movegain {tkcanvas y} {
-    variable previousy
-    variable framex1
-    variable framey1
-    variable framex2
-    variable framey2
-    variable filtergain
+proc filterview::movegain {my y} {
+    puts stderr "filterview::movegain $my $y"
+    variable ${my}::tkcanvas
+    variable ${my}::previousy
+    variable ${my}::framex1
+    variable ${my}::framey1
+    variable ${my}::framex2
+    variable ${my}::framey2
+    variable ${my}::filtergain
 
     set gainy [expr $filtergain + $y - $previousy]
     if {[expr $gainy < $framey1]} {
@@ -532,40 +506,45 @@ proc filterview::movegain {tkcanvas y} {
 #------------------------------------------------------------------------------#
 # move the filter
 
-proc filterview::start_move {tkcanvas x y} {
-    variable tag
+proc filterview::start_move {my x y} {
+    puts stderr "filterview::start_move $my $x $y"
+    variable ${my}::tkcanvas
+    variable ${my}::tag
+    variable ${my}::previousx $x
+    variable ${my}::previousy $y
+    variable ${my}::framey1
+    variable ${my}::framey2
+    variable ${my}::filtercenter
     variable selectedline_color
-    variable previousx $x
-    variable previousy $y
-    variable framey1
-    variable framey2
-    variable filtercenter
 
     $tkcanvas itemconfigure filterlines -width 2 -fill $selectedline_color
-    $tkcanvas bind $tag <Motion> "filterview::move %W %x %y"
-    create_centerline $tkcanvas $framey1 $framey2 $filtercenter
+    $tkcanvas bind $tag <Motion> "filterview::move $my %x %y"
+    create_centerline $my $framey1 $framey2 $filtercenter
     # cursors are set per toplevel window, not in the tkcanvas
     set mytoplevel [winfo toplevel $tkcanvas]
     $mytoplevel configure -cursor fleur
 }
 
-proc filterview::move {tkcanvas x y} {
-    moveband $tkcanvas $x
-    movegain $tkcanvas $y
-    update_coefficients $tkcanvas
+proc filterview::move {my x y} {
+    puts stderr "filterview::move $my $x $y"
+    moveband $my $x
+    movegain $my $y
+    update_coefficients $my
 }
 
 #------------------------------------------------------------------------------#
 # change the filter
 
-proc filterview::start_changebandwidth {tkcanvas x y} {
-    variable tag
-    variable previousx $x
-    variable previousy $y
-    variable framey1
-    variable framey2
-    variable filtercenter
-    variable lessthan_filtercenter
+proc filterview::start_changebandwidth {my x y} {
+    puts stderr "filterview::start_changebandwidth $my $x $y"
+    variable ${my}::tkcanvas
+    variable ${my}::tag
+    variable ${my}::previousx $x
+    variable ${my}::previousy $y
+    variable ${my}::framey1
+    variable ${my}::framey2
+    variable ${my}::filtercenter
+    variable ${my}::lessthan_filtercenter
 
     if {$x < $filtercenter} {
         set lessthan_filtercenter 1
@@ -575,24 +554,27 @@ proc filterview::start_changebandwidth {tkcanvas x y} {
     $tkcanvas bind bandedges <Leave> {}
     $tkcanvas bind bandedges <Enter> {}
     $tkcanvas bind bandedges <Motion> {}
-    $tkcanvas bind $tag <Motion> {filterview::changebandwidth %W %x %y}
-    create_centerline $tkcanvas $framey1 $framey2 $filtercenter
+    $tkcanvas bind $tag <Motion> "filterview::changebandwidth $my %x %y"
+    create_centerline $my $framey1 $framey2 $filtercenter
     # cursors are set per toplevel window, not in the tkcanvas
     set mytoplevel [winfo toplevel $tkcanvas]
     $mytoplevel configure -cursor sb_h_double_arrow
+    puts stderr "END filterview::start_changebandwidth $my $x $y"
 }
 
-proc filterview::changebandwidth {tkcanvas x y} {
-    variable previousx
-    variable framex1
-    variable framey1
-    variable framex2
-    variable framey2
-    variable filterx1
-    variable filterx2
-    variable filterwidth
-    variable filtercenter
-    variable lessthan_filtercenter
+proc filterview::changebandwidth {my x y} {
+#    puts stderr "filterview::changebandwidth $my $x $y"
+    variable ${my}::tkcanvas
+    variable ${my}::previousx
+    variable ${my}::framex1
+    variable ${my}::framey1
+    variable ${my}::framex2
+    variable ${my}::framey2
+    variable ${my}::filterx1
+    variable ${my}::filterx2
+    variable ${my}::filterwidth
+    variable ${my}::filtercenter
+    variable ${my}::lessthan_filtercenter
 
     set dx [expr $x - $previousx]
     if {$lessthan_filtercenter} {
@@ -631,12 +613,13 @@ proc filterview::changebandwidth {tkcanvas x y} {
     $tkcanvas coords filterbandright $filterx2 $framey1  $filterx2 $framey2
     set previousx $x
 
-    movegain $tkcanvas $y
-    update_coefficients $tkcanvas
+    movegain $my $y
+    update_coefficients $my
 }
 
-proc filterview::band_cursor {tkcanvas x} {
-    variable filtercenter
+proc filterview::band_cursor {my x} {
+    variable ${my}::tkcanvas
+    variable ${my}::filtercenter
     # cursors are set per toplevel window, not in the tkcanvas
     set mytoplevel [winfo toplevel $tkcanvas]
     if {$x < $filtercenter} {
@@ -646,18 +629,21 @@ proc filterview::band_cursor {tkcanvas x} {
     }
 }
 
-proc filterview::enterband {tkcanvas} {
-    variable tag
+proc filterview::enterband {my} {
+    puts stderr "filterview::enterband $my"
+    variable ${my}::tkcanvas
+    variable ${my}::tag
     variable selectedline_color
     $tkcanvas bind $tag <ButtonPress-1> {}
-    $tkcanvas bind bandedges <Motion> {filterview::band_cursor %W %x}
+    $tkcanvas bind bandedges <Motion> "filterview::band_cursor $my %x"
     $tkcanvas itemconfigure filterband -width 2 -fill $selectedline_color
 }
 
-proc filterview::leaveband {tkcanvas} {
-    variable tag
+proc filterview::leaveband {my} {
+    variable ${my}::tkcanvas
+    variable ${my}::tag
     variable mutedline_color
-    $tkcanvas bind $tag <ButtonPress-1> {filterview::start_move %W %x %y}
+    $tkcanvas bind $tag <ButtonPress-1> "filterview::start_move $my %x %y"
     $tkcanvas bind bandedges <Motion> {}
     $tkcanvas itemconfigure filterband -width 1 -fill $mutedline_color
     # cursors are set per toplevel window, not in the tkcanvas
@@ -667,8 +653,10 @@ proc filterview::leaveband {tkcanvas} {
 
 #------------------------------------------------------------------------------#
 
-proc filterview::create_centerline {tkcanvas y1 y2 centery} {
-    variable tag
+proc filterview::create_centerline {my y1 y2 centery} {
+    puts stderr "filterview::create_centerline $my $y1 $y2 $centery"
+    variable ${my}::tkcanvas
+    variable ${my}::tag
     variable mutedline_color
     # bandwidth box center
     $tkcanvas create line $centery $y1 $centery $y2 \
@@ -676,7 +664,9 @@ proc filterview::create_centerline {tkcanvas y1 y2 centery} {
         -tags [list $tag filterlines filterband filterbandcenter]
 }
 
-proc filterview::delete_centerline {tkcanvas} {
+proc filterview::delete_centerline {my} {
+    puts stderr "filterview::delete_centerline $my"
+    variable ${my}::tkcanvas
     $tkcanvas delete filterbandcenter
 }
 
@@ -684,107 +674,166 @@ proc filterview::delete_centerline {tkcanvas} {
 
 # Tcl doesn't get the frame location from Pd in filterview, so we
 # measure the current frame location and reset the frame x/y variables.
-proc filterview::reset_frame_location {tkcanvas} {
+proc filterview::reset_frame_location {my} {
+    puts stderr "filterview::reset_frame_location $my"
+    variable ${my}::tkcanvas
     set coordslist [$tkcanvas coords filterframe]
-    variable framex1 [lindex $coordslist 0]
-    variable framey1 [lindex $coordslist 1]
-    variable framex2 [lindex $coordslist 2]
-    variable framey2 [lindex $coordslist 3]
+    puts stderr "coordslist $coordslist"
+    if {[llength $coordslist] == 4} {
+        variable ${my}::framex1 [lindex $coordslist 0]
+        variable ${my}::framey1 [lindex $coordslist 1]
+        variable ${my}::framex2 [lindex $coordslist 2]
+        variable ${my}::framey2 [lindex $coordslist 3]
+    }
 }
 
-proc filterview::stop_editing {tkcanvas} {
-    variable tag
+proc filterview::stop_editing {my} {
+    puts stderr "filterview::stop_editing $my"
+    variable ${my}::tkcanvas
+    variable ${my}::tag
     variable mutedline_color
     $tkcanvas bind $tag <Motion> {}
     $tkcanvas itemconfigure filterlines -width 1 -fill $mutedline_color
-    $tkcanvas bind bandedges <Enter> {filterview::enterband %W}
-    $tkcanvas bind bandedges <Leave> {filterview::leaveband %W}
-    delete_centerline $tkcanvas
+    $tkcanvas bind bandedges <Enter> "puts {Enter bandedges};filterview::enterband $my"
+    $tkcanvas bind bandedges <Leave> "filterview::leaveband $my"
+    delete_centerline $my
     # cursors are set per toplevel window, not in the tkcanvas
     set mytoplevel [winfo toplevel $tkcanvas]
     $mytoplevel configure -cursor $::cursor_runmode_nothing
 }
 
 proc filterview::set_for_editmode {mytoplevel} {
-    variable tag
+    puts stderr "filterview::set_for_editmode $mytoplevel"
+    variable mys_in_tkcanvas
     set tkcanvas [tkcanvas_name $mytoplevel]
     if {$::editmode($mytoplevel) == 1} {
         # disable the graph interaction while editing
-        $tkcanvas bind $tag <ButtonPress-1> {}
-        $tkcanvas bind $tag <ButtonRelease-1> {}
-        $tkcanvas bind bandedges <ButtonPress-1> {}
-        $tkcanvas bind bandedges <ButtonRelease-1> {}
-        $tkcanvas bind bandedges <Enter> {}
-        $tkcanvas bind bandedges <Leave> {}
+        if {[array names mys_in_tkcanvas -exact $tkcanvas] eq $tkcanvas} {
+            foreach my $mys_in_tkcanvas($tkcanvas) {
+                variable ${my}::tag
+                $tkcanvas bind $tag <ButtonPress-1> {}
+                $tkcanvas bind $tag <ButtonRelease-1> {}
+                $tkcanvas bind bandedges <ButtonPress-1> {}
+                $tkcanvas bind bandedges <ButtonRelease-1> {}
+                $tkcanvas bind bandedges <Enter> {}
+                $tkcanvas bind bandedges <Leave> {}
+            }
+        }
     } else {
-        # binding is also changed by enter/leave on the band and editmode
-        $tkcanvas bind $tag <ButtonPress-1> {filterview::start_move %W %x %y}
-        $tkcanvas bind $tag <ButtonRelease-1> {filterview::stop_editing %W}
-        $tkcanvas bind bandedges <ButtonPress-1> {filterview::start_changebandwidth %W %x %y}
-        $tkcanvas bind bandedges <ButtonRelease-1> {filterview::stop_editing %W}
-        reset_frame_location $tkcanvas
+        if {[array names mys_in_tkcanvas -exact $tkcanvas] eq $tkcanvas} {
+            foreach my $mys_in_tkcanvas($tkcanvas) {
+                variable ${my}::tag
+                puts stderr "enabling interaction: $tag"
+                $tkcanvas bind $tag <ButtonPress-1> \
+                    "filterview::start_move $my %x %y"
+                $tkcanvas bind $tag <ButtonRelease-1> \
+                    "filterview::stop_editing $my"
+                $tkcanvas bind bandedges <ButtonPress-1> \
+                    "filterview::start_changebandwidth $my %x %y"
+                $tkcanvas bind bandedges <ButtonRelease-1> \
+                    "filterview::stop_editing $my"
+                reset_frame_location $my
+            }
+        }
     }
 }
 
 #------------------------------------------------------------------------------#
 
-proc filterview::setrect {x1 y1 x2 y2} {
+proc filterview::init_instance {my canvas name t x1 y1 x2 y2} {
+    puts stderr "filterview::init_instance $my $canvas $name $t $x1 $y1 $x2 $y2"
+    namespace eval $my {
+        #------------------------------
+        # per-instance variables
+        variable tag "tag"
+        variable tkcanvas ".tkcanvas"
+        variable receive_name "receive_name"
+
+        variable currentfiltertype "peaking"
+
+        variable previousx 0
+        variable previousy 0
+
+        # coefficients for [biquad~]
+        variable a1 0
+        variable a2 0
+        variable b0 1
+        variable b1 0
+        variable b2 0
+    }
+    variable ${my}::tkcanvas $canvas
+    variable ${my}::receive_name $name
+    variable ${my}::tag $t
+    puts stderr "DID INIT? $tkcanvas $receive_name $tag"
+
     # convert these all to floats so the math works properly
-    variable framex1 [expr $x1 * 1.0]
-    variable framey1 [expr $y1 * 1.0]
-    variable framex2 [expr $x2 * 1.0]
-    variable framey2 [expr $y2 * 1.0]
+    variable ${my}::framex1 [expr $x1 * 1.0]
+    variable ${my}::framey1 [expr $y1 * 1.0]
+    variable ${my}::framex2 [expr $x2 * 1.0]
+    variable ${my}::framey2 [expr $y2 * 1.0]
+    puts stderr "DID INIT FRAME? $framex1 $framey1 $framex2 $framey2"
     
-    variable midpoint [expr (($framey2 - $framey1) / 2) + $framey1]
-    variable hzperpixel [expr 20000.0 / ($framex2 - $framex1)]
-    variable magnatudeperpixel [expr 0.5 / ($framey2 - $framey1)]
-    
+    variable ${my}::midpoint [expr (($framey2 - $framey1) / 2) + $framey1]
+    variable ${my}::hzperpixel [expr 20000.0 / ($framex2 - $framex1)]
+    variable ${my}::magnatudeperpixel [expr 0.5 / ($framey2 - $framey1)]
+
     # TODO make these set by something else, saved state?
-    variable filterx1 120.0
-    variable filterx2 180.0
-
-    variable filtergain $midpoint
-    variable filterwidth [expr $filterx2 - $filterx1]
-    variable filtercenter [expr $filterx1 + ($filterwidth/2)]
+    variable ${my}::filterx1 120.0
+    variable ${my}::filterx2 180.0
+    
+    variable ${my}::filtergain $midpoint
+    variable ${my}::filterwidth [expr $filterx2 - $filterx1]
+    variable ${my}::filtercenter [expr $filterx1 + ($filterwidth/2)]
 }
 
-proc filterview::eraseme {tkcanvas} {
-    variable tag
+proc filterview::eraseme {my} {
+    variable ${my}::tkcanvas
+    variable ${my}::tag
+    variable mys_in_tkcanvas
     $tkcanvas delete $tag
+    set mys_in_tkcanvas($tkcanvas) \
+        [lsearch -all -inline -not -exact $mys_in_tkcanvas($tkcanvas) $my]
 }
 
-proc filterview::setfilter {tkcanvas filter} {
-    variable tag
-    variable currentfiltertype $filter
-    variable framex1
-    variable framex2
-    variable filtergain
+proc filterview::setfiltertype {my filtertype} {
+    variable ${my}::tkcanvas
+    variable ${my}::tag
+    variable ${my}::currentfiltertype $filtertype
+    variable ${my}::framex1
+    variable ${my}::framex2
+    variable ${my}::filtergain
     variable filters_with_gain
     variable mutedline_color
 
-    if {[lsearch -exact $filters_with_gain $filter] > -1} {
+    variable ${my}::framey1
+    variable ${my}::framey2
+    puts stderr "setfiltertype frame $framex1 $framey1 $framex2 $framey2"
+
+    if {[lsearch -exact $filters_with_gain $filtertype] > -1} {
         $tkcanvas create line $framex1 $filtergain $framex2 $filtergain \
             -fill $mutedline_color \
             -tags [list $tag filterlines filtergain]
     } else {
         $tkcanvas delete filtergain
     }
-    update_coefficients $tkcanvas
+    update_coefficients $my
 }
 
-proc filterview::drawme {tkcanvas name tag_from_pd} {
-    variable receive_name $name
-    variable tag $tag_from_pd
-    variable currentfiltertype
+proc filterview::drawme {my} {
+    variable ${my}::tkcanvas
+    variable ${my}::receive_name
+    variable ${my}::tag
+    variable ${my}::currentfiltertype
+    variable ${my}::framex1
+    variable ${my}::framey1
+    variable ${my}::framex2
+    variable ${my}::framey2
+    variable ${my}::filterx1
+    variable ${my}::filterx2
+    variable ${my}::midpoint
+    variable mys_in_tkcanvas
     variable markercolor
     variable mutedline_color
-    variable framex1
-    variable framey1
-    variable framex2
-    variable framey2
-    variable filterx1
-    variable filterx2
-    variable midpoint
 
     # background
     $tkcanvas create rectangle $framex1 $framey1 $framex2 $framey2 \
@@ -839,13 +888,16 @@ proc filterview::drawme {tkcanvas name tag_from_pd} {
         $framex2 $outlety $outletx $outlety $outletx $framey2 \
         -tags [list $tag nlet]
 
-    setfilter $tkcanvas $currentfiltertype
+    setfiltertype $my $currentfiltertype
 
     # run to set things up
-    stop_editing $tkcanvas
+    stop_editing $my
+    lappend mys_in_tkcanvas($tkcanvas) $my
+    puts stderr "ARRAY [array names mys_in_tkcanvas]"
 }
 
-proc filterview::select {tkcanvas state} {
+proc filterview::select {my state} {
+    variable ${my}::tkcanvas
     variable selectcolor
     variable markercolor
     if {$state} {
@@ -856,13 +908,13 @@ proc filterview::select {tkcanvas state} {
 }
 
 # sets the biquad coefficients from a list in the first inlet
-proc filterview::coefficients {tkcanvas aa1 aa2 bb0 bb1 bb2} {
-    variable a1 $aa1
-    variable a2 $aa2
-    variable b0 $bb0
-    variable b1 $bb1
-    variable b2 $bb2
-    drawgraph $tkcanvas
+proc filterview::coefficients {my aa1 aa2 bb0 bb1 bb2} {
+    variable ${my}::a1 $aa1
+    variable ${my}::a2 $aa2
+    variable ${my}::b0 $bb0
+    variable ${my}::b1 $bb1
+    variable ${my}::b2 $bb2
+    drawgraph $my
 }
 
 # sets up an instance of the class
@@ -879,16 +931,29 @@ proc filterview::setup {} {
 
     # if not loading within Pd, then create a window and canvas to work with
     if {[llength [info procs ::pdtk_post]] == 0} {
+        set my ::FAKEDMY
+        set mytoplevel .
+        set tkcanvas .c
+        set tag FAKEDTAG
         catch {console show}
         puts stderr "setting up as standalone dev mode!"
+
         # this stuff creates a dev skeleton
+        set ::cursor_runmode_nothing arrow
+        array set ::editmode [list $mytoplevel 0]
+        puts stderr "ARRAY ::editmode : [array names ::editmode]"
+        array set filterview::mys_in_tkcanvas [list $tkcanvas $my]
         proc ::pdtk_post {args} {puts stderr "pdtk_post $args"}
         proc ::pdsend {args} {puts stderr "pdsend $args"}
-        filterview::setrect 30.0 30.0 330.0 230.0
+        proc ::tkcanvas_name {mytoplevel} "return $tkcanvas"
+
         wm geometry . 400x400+500+40
-        canvas .c
-        pack .c -side left -expand 1 -fill both
-        filterview::drawme .c #filterview
+        canvas $tkcanvas
+        pack $tkcanvas -side left -expand 1 -fill both
+        filterview::init_instance $my $tkcanvas FAKE_RECEIVE_NAME $tag 30.0 30.0 330.0 230.0
+        filterview::set_for_editmode .
+        filterview::setfiltertype $my "peaking"
+        filterview::drawme $my
     }
 }
 
