@@ -730,7 +730,8 @@ proc filterview::set_for_editmode {mytoplevel} {
 
 #------------------------------------------------------------------------------#
 
-proc filterview::init_instance {my canvas name t x1 y1 x2 y2} {
+# sets up an instance of the class
+proc filterview::new {my canvas name t x1 y1 x2 y2} {
     namespace eval $my {
         #------------------------------
         # per-instance variables
@@ -903,10 +904,6 @@ proc filterview::coefficients {my aa1 aa2 bb0 bb1 bb2} {
     drawgraph $my
 }
 
-# sets up an instance of the class
-proc filterview::new {} { 
-}
-
 # sets up the class
 proc filterview::setup {} {
     bind PatchWindow <<EditMode>> {+filterview::set_for_editmode %W}    
@@ -935,7 +932,7 @@ proc filterview::setup {} {
         wm geometry . 400x400+500+40
         canvas $tkcanvas
         pack $tkcanvas -side left -expand 1 -fill both
-        filterview::init_instance $my $tkcanvas FAKE_RECEIVE_NAME $tag 30.0 30.0 330.0 230.0
+        filterview::new $my $tkcanvas FAKE_RECEIVE_NAME $tag 30.0 30.0 330.0 230.0
         filterview::set_for_editmode .
         filterview::setfiltertype $my "peaking"
         filterview::drawme $my
