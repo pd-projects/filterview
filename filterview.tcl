@@ -60,6 +60,7 @@ proc filterview::mtof {nn} {
 
 proc filterview::drawgraph {my} {
     variable ${my}::tkcanvas
+    variable ${my}::tag
     variable ${my}::framex1
     variable ${my}::framey1
     variable ${my}::framex2
@@ -81,10 +82,10 @@ proc filterview::drawgraph {my} {
         lappend magnatudepoints [lindex $result 0]
         lappend phasepoints [lindex $result 1]
     }
-    $tkcanvas coords responseline $magnatudepoints
-    $tkcanvas coords responsefill \
+    $tkcanvas coords responseline$tag $magnatudepoints
+    $tkcanvas coords responsefill$tag \
         [concat $magnatudepoints $framex2 $framey2 $framex1 $framey2]
-    $tkcanvas coords phaseline $phasepoints
+    $tkcanvas coords phaseline$tag $phasepoints
 }
 
 proc filterview::update_coefficients {my} {
@@ -450,6 +451,7 @@ proc filterview::allpass {my f0pix bwpix} {
 proc filterview::moveband {my x} {
     puts stderr "filterview::moveband $my $x"
     variable ${my}::tkcanvas
+    variable ${my}::tag
     variable ${my}::previousx
     variable ${my}::framex1
     variable ${my}::framey1
@@ -475,9 +477,9 @@ proc filterview::moveband {my x} {
     }
     set filterwidth [expr $filterx2 - $filterx1]
     set filtercenter [expr $filterx1 + ($filterwidth/2)]
-    $tkcanvas coords filterbandleft $filterx1 $framey1  $filterx1 $framey2
-    $tkcanvas coords filterbandcenter $filtercenter $framey1  $filtercenter $framey2
-    $tkcanvas coords filterbandright $filterx2 $framey1  $filterx2 $framey2
+    $tkcanvas coords bandleft$tag $filterx1 $framey1  $filterx1 $framey2
+    $tkcanvas coords bandcenter$tag $filtercenter $framey1  $filtercenter $framey2
+    $tkcanvas coords bandright$tag $filterx2 $framey1  $filterx2 $framey2
     set previousx $x
 }
 
@@ -517,7 +519,7 @@ proc filterview::start_move {my x y} {
     variable ${my}::filtercenter
     variable selectedline_color
 
-    $tkcanvas itemconfigure filterlines -width 2 -fill $selectedline_color
+    $tkcanvas itemconfigure lines$tag -width 2 -fill $selectedline_color
     $tkcanvas bind $tag <Motion> "filterview::move $my %x %y"
     create_centerline $my $framey1 $framey2 $filtercenter
     # cursors are set per toplevel window, not in the tkcanvas
@@ -551,9 +553,9 @@ proc filterview::start_changebandwidth {my x y} {
     } else {
         set lessthan_filtercenter 0
     }
-    $tkcanvas bind bandedges <Leave> {}
-    $tkcanvas bind bandedges <Enter> {}
-    $tkcanvas bind bandedges <Motion> {}
+    $tkcanvas bind bandedges$tag <Leave> {}
+    $tkcanvas bind bandedges$tag <Enter> {}
+    $tkcanvas bind bandedges$tag <Motion> {}
     $tkcanvas bind $tag <Motion> "filterview::changebandwidth $my %x %y"
     create_centerline $my $framey1 $framey2 $filtercenter
     # cursors are set per toplevel window, not in the tkcanvas
@@ -565,6 +567,7 @@ proc filterview::start_changebandwidth {my x y} {
 proc filterview::changebandwidth {my x y} {
 #    puts stderr "filterview::changebandwidth $my $x $y"
     variable ${my}::tkcanvas
+    variable ${my}::tag
     variable ${my}::previousx
     variable ${my}::framex1
     variable ${my}::framey1
@@ -608,9 +611,9 @@ proc filterview::changebandwidth {my x y} {
     }
     set filterwidth [expr $filterx2 - $filterx1]
     set filtercenter [expr $filterx1 + ($filterwidth/2)]
-    $tkcanvas coords filterbandleft $filterx1 $framey1  $filterx1 $framey2
-    $tkcanvas coords filterbandcenter $filtercenter $framey1  $filtercenter $framey2
-    $tkcanvas coords filterbandright $filterx2 $framey1  $filterx2 $framey2
+    $tkcanvas coords bandleft$tag $filterx1 $framey1  $filterx1 $framey2
+    $tkcanvas coords bandcenter$tag $filtercenter $framey1  $filtercenter $framey2
+    $tkcanvas coords bandright$tag $filterx2 $framey1  $filterx2 $framey2
     set previousx $x
 
     movegain $my $y
@@ -635,8 +638,8 @@ proc filterview::enterband {my} {
     variable ${my}::tag
     variable selectedline_color
     $tkcanvas bind $tag <ButtonPress-1> {}
-    $tkcanvas bind bandedges <Motion> "filterview::band_cursor $my %x"
-    $tkcanvas itemconfigure filterband -width 2 -fill $selectedline_color
+    $tkcanvas bind bandedges$tag <Motion> "filterview::band_cursor $my %x"
+    $tkcanvas itemconfigure band$tag -width 2 -fill $selectedline_color
 }
 
 proc filterview::leaveband {my} {
@@ -644,8 +647,8 @@ proc filterview::leaveband {my} {
     variable ${my}::tag
     variable mutedline_color
     $tkcanvas bind $tag <ButtonPress-1> "filterview::start_move $my %x %y"
-    $tkcanvas bind bandedges <Motion> {}
-    $tkcanvas itemconfigure filterband -width 1 -fill $mutedline_color
+    $tkcanvas bind bandedges$tag <Motion> {}
+    $tkcanvas itemconfigure band$tag -width 1 -fill $mutedline_color
     # cursors are set per toplevel window, not in the tkcanvas
     set mytoplevel [winfo toplevel $tkcanvas]
     $mytoplevel configure -cursor $::cursor_runmode_nothing
@@ -661,13 +664,14 @@ proc filterview::create_centerline {my y1 y2 centery} {
     # bandwidth box center
     $tkcanvas create line $centery $y1 $centery $y2 \
         -fill $mutedline_color \
-        -tags [list $tag filterlines filterband filterbandcenter]
+        -tags [list $tag lines$tag band$tag bandcenter$tag]
 }
 
 proc filterview::delete_centerline {my} {
     puts stderr "filterview::delete_centerline $my"
     variable ${my}::tkcanvas
-    $tkcanvas delete filterbandcenter
+    variable ${my}::tag
+    $tkcanvas delete bandcenter$tag
 }
 
 #------------------------------------------------------------------------------#
@@ -677,7 +681,8 @@ proc filterview::delete_centerline {my} {
 proc filterview::reset_frame_location {my} {
     puts stderr "filterview::reset_frame_location $my"
     variable ${my}::tkcanvas
-    set coordslist [$tkcanvas coords filterframe]
+    variable ${my}::tag
+    set coordslist [$tkcanvas coords frame$tag]
     puts stderr "coordslist $coordslist"
     if {[llength $coordslist] == 4} {
         variable ${my}::framex1 [lindex $coordslist 0]
@@ -693,9 +698,9 @@ proc filterview::stop_editing {my} {
     variable ${my}::tag
     variable mutedline_color
     $tkcanvas bind $tag <Motion> {}
-    $tkcanvas itemconfigure filterlines -width 1 -fill $mutedline_color
-    $tkcanvas bind bandedges <Enter> "puts {Enter bandedges};filterview::enterband $my"
-    $tkcanvas bind bandedges <Leave> "filterview::leaveband $my"
+    $tkcanvas itemconfigure lines$tag -width 1 -fill $mutedline_color
+    $tkcanvas bind bandedges$tag <Enter> "puts {Enter bandedges$tag};filterview::enterband $my"
+    $tkcanvas bind bandedges$tag <Leave> "filterview::leaveband $my"
     delete_centerline $my
     # cursors are set per toplevel window, not in the tkcanvas
     set mytoplevel [winfo toplevel $tkcanvas]
@@ -713,10 +718,10 @@ proc filterview::set_for_editmode {mytoplevel} {
                 variable ${my}::tag
                 $tkcanvas bind $tag <ButtonPress-1> {}
                 $tkcanvas bind $tag <ButtonRelease-1> {}
-                $tkcanvas bind bandedges <ButtonPress-1> {}
-                $tkcanvas bind bandedges <ButtonRelease-1> {}
-                $tkcanvas bind bandedges <Enter> {}
-                $tkcanvas bind bandedges <Leave> {}
+                $tkcanvas bind bandedges$tag <ButtonPress-1> {}
+                $tkcanvas bind bandedges$tag <ButtonRelease-1> {}
+                $tkcanvas bind bandedges$tag <Enter> {}
+                $tkcanvas bind bandedges$tag <Leave> {}
             }
         }
     } else {
@@ -728,9 +733,9 @@ proc filterview::set_for_editmode {mytoplevel} {
                     "filterview::start_move $my %x %y"
                 $tkcanvas bind $tag <ButtonRelease-1> \
                     "filterview::stop_editing $my"
-                $tkcanvas bind bandedges <ButtonPress-1> \
+                $tkcanvas bind bandedges$tag <ButtonPress-1> \
                     "filterview::start_changebandwidth $my %x %y"
-                $tkcanvas bind bandedges <ButtonRelease-1> \
+                $tkcanvas bind bandedges$tag <ButtonRelease-1> \
                     "filterview::stop_editing $my"
                 reset_frame_location $my
             }
@@ -812,7 +817,7 @@ proc filterview::setfiltertype {my filtertype} {
     if {[lsearch -exact $filters_with_gain $filtertype] > -1} {
         $tkcanvas create line $framex1 $filtergain $framex2 $filtergain \
             -fill $mutedline_color \
-            -tags [list $tag filterlines filtergain]
+            -tags [list $tag lines$tag filtergain]
     } else {
         $tkcanvas delete filtergain
     }
@@ -838,37 +843,37 @@ proc filterview::drawme {my} {
     # background
     $tkcanvas create rectangle $framex1 $framey1 $framex2 $framey2 \
         -outline $markercolor -fill "#f8feff" \
-        -tags [list $tag filterframe]
+        -tags [list $tag frame$tag]
 
     # magnatude response graph fill
     $tkcanvas create polygon $framex1 $midpoint $framex2 $midpoint \
         $framex2 $framey2 $framex1 $framey2 \
         -fill "#e7f6d8" \
-        -tags [list $tag response responsefill]
+        -tags [list $tag response$tag responsefill$tag]
 
     # magnatude response graph line
     $tkcanvas create line $framex1 $midpoint $framex2 $midpoint \
         -fill "#B7C6A8" -width 3 \
-        -tags [list $tag response responseline]
+        -tags [list $tag response$tag responseline$tag]
 
     # zero line/equator
     $tkcanvas create line $framex1 $midpoint $framex2 $midpoint \
         -fill $markercolor \
-        -tags [list $tag zeroline]
+        -tags [list $tag zeroline$tag]
 
     # phase response graph line
     $tkcanvas create line $framex1 $midpoint $framex2 $midpoint \
         -fill "#ccf" -width 1 \
-        -tags [list $tag response phaseline]
+        -tags [list $tag response$tag phaseline$tag]
 
     # bandwidth box left side
     $tkcanvas create line $filterx1 $framey1 $filterx1 $framey2 \
         -fill $mutedline_color \
-        -tags [list $tag filterlines filterband filterbandleft bandedges]
+        -tags [list $tag lines$tag band$tag bandleft$tag bandedges$tag]
     # bandwidth box right side
     $tkcanvas create line $filterx2 $framey1 $filterx2 $framey2 \
         -fill $mutedline_color \
-        -tags [list $tag filterlines filterband filterbandright bandedges]
+        -tags [list $tag lines$tag band$tag bandright$tag bandedges$tag]
 
     # inlet/outlet
     set nletx [expr $framex1 + 7]
@@ -878,15 +883,15 @@ proc filterview::drawme {my} {
     #inlet0
     $tkcanvas create line $framex1 $framey1 $nletx $framey1 \
         $nletx $inlety $framex1 $inlety $framex1 $framey1 \
-        -tags [list $tag nlet]
+        -tags [list $tag nlet$tag]
     #outlet0
     $tkcanvas create line $framex1 $framey2 $nletx $framey2 \
         $nletx $outlety $framex1 $outlety $framex1 $framey1 \
-        -tags [list $tag nlet]
+        -tags [list $tag nlet$tag]
     #outlet1
     $tkcanvas create line $outletx $framey2 $framex2 $framey2 \
         $framex2 $outlety $outletx $outlety $outletx $framey2 \
-        -tags [list $tag nlet]
+        -tags [list $tag nlet$tag]
 
     setfiltertype $my $currentfiltertype
 
@@ -898,12 +903,13 @@ proc filterview::drawme {my} {
 
 proc filterview::select {my state} {
     variable ${my}::tkcanvas
+    variable ${my}::tag
     variable selectcolor
     variable markercolor
     if {$state} {
-        $tkcanvas itemconfigure filterframe -outline $selectcolor -width 2
+        $tkcanvas itemconfigure frame$tag -outline $selectcolor -width 2
      } else {
-        $tkcanvas itemconfigure filterframe -outline $markercolor -width 1
+        $tkcanvas itemconfigure frame$tag -outline $markercolor -width 1
      }
 }
 
