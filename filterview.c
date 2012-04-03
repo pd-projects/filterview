@@ -186,8 +186,7 @@ static void *filterview_new(t_symbol* s)
     x->filtertype = gensym("peaking");
     x->x_glist = canvas_getcurrent();
 
-// TODO    sprintf(x->receive_name, "#%lx", x);
-    sprintf(buf, "#filterview");
+    sprintf(buf, "#R%lx", (long unsigned int)x);
     x->receive_name = gensym(buf);
     pd_bind(&x->x_obj.ob_pd, x->receive_name);
 
