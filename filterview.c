@@ -130,6 +130,11 @@ static void setfiltertype(t_filterview *x, char* filtertype)
              x->my, x->filtertype->s_name);
 }
 
+static void filterview_symbol(t_filterview *x, t_symbol *s)
+{
+    setfiltertype(x, s->s_name);
+}
+
 static void filterview_allpass(t_filterview *x)
 {
     setfiltertype(x, "allpass");
@@ -222,6 +227,7 @@ void filterview_setup(void)
     class_addmethod(filterview_class, (t_method)filterview_resonant, gensym("resonant"), 0);
     class_addmethod(filterview_class, (t_method)filterview_biquad_callback,
                     gensym("biquad"), A_GIMME, 0);
+    class_addsymbol(filterview_class, (t_method)filterview_symbol);
     class_addlist(filterview_class, (t_method)filterview_list);
 
     /* widget behavior */
