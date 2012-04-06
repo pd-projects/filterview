@@ -75,6 +75,11 @@ static void filterview_select(t_gobj *z, t_glist *glist, int state)
     sys_vgui("::filterview::select %s %d\n", x->my, state);
 }
 
+void filterview_delete(t_gobj *z, t_glist *glist)
+{
+    canvas_deletelinesfor(glist, (t_text *)z);
+}
+
 static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
 {
     t_filterview* x = (t_filterview*)z;
@@ -235,7 +240,7 @@ void filterview_setup(void)
     filterview_widgetbehavior.w_displacefn = filterview_displace;
     filterview_widgetbehavior.w_selectfn   = filterview_select;
     filterview_widgetbehavior.w_activatefn = NULL;
-    filterview_widgetbehavior.w_deletefn   = NULL;
+    filterview_widgetbehavior.w_deletefn   = filterview_delete;
     filterview_widgetbehavior.w_visfn      = filterview_vis;
     filterview_widgetbehavior.w_clickfn    = NULL;
     class_setwidget(filterview_class, &filterview_widgetbehavior);
