@@ -766,8 +766,8 @@ proc filterview::new {my canvas name t x1 y1 x2 y2} {
     variable ${my}::magnatudeperpixel [expr 0.5 / ($framey2 - $framey1)]
 
     # TODO make these set by something else, saved state?
-    variable ${my}::filterx1 120.0
-    variable ${my}::filterx2 180.0
+    variable ${my}::filterx1 [expr $framex1 + 120.0]
+    variable ${my}::filterx2 [expr $framex1 + 180.0]
     
     variable ${my}::filtergain $midpoint
     variable ${my}::filterwidth [expr $filterx2 - $filterx1]
