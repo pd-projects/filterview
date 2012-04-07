@@ -798,6 +798,8 @@ proc filterview::setfiltertype {my filtertype} {
     variable ${my}::framey2
 
     if {[lsearch -exact $filters_with_gain $filtertype] > -1} {
+        # if any gain lines exist from before, delete first
+        $tkcanvas delete gain$tag
         $tkcanvas create line $framex1 $filtergain $framex2 $filtergain \
             -fill $mutedlinecolor \
             -tags [list $tag lines$tag gain$tag]
