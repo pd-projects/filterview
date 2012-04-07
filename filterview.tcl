@@ -881,6 +881,7 @@ proc filterview::drawme {my} {
     # run to set things up
     stop_editing $my
     lappend mys_in_tkcanvas($tkcanvas) $my
+    set_for_editmode [winfo toplevel $tkcanvas]
 }
 
 proc filterview::select {my state} {
