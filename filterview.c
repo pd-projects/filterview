@@ -85,7 +85,7 @@ static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
     t_filterview* x = (t_filterview*)z;
     if (vis)
     {
-        set_tkwidgets_ids(x, glist);
+        set_tkwidgets_ids(x, glist_getcanvas(glist));
         sys_vgui("filterview::new %s %s %s %s %d %d %d %d\n",
                  x->my, x->canvas_id, x->receive_name->s_name, x->tag,
                  text_xpix(&x->x_obj, glist),
