@@ -72,7 +72,7 @@ proc filterview::drawgraph {my} {
     variable ${my}::b2
 
     set framewidth [expr int($framex2 - $framex1)]
-    for {set x [expr int($framex1)]} {$x <= $framex2} {incr x [expr $framewidth/40]} {
+    for {set x [expr int($framex1)]} {$x <= $framex2} {incr x 5} {
         lappend magnatudepoints $x
         lappend phasepoints $x
         set nn [expr ($x - $framex1)/$framewidth*120+16.766]
