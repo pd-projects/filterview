@@ -2,6 +2,6 @@
 #N canvas 25 49 420 300 META 1;
 #X text 13 41 NAME filterview;
 #X text 10 25 AUTHOR Hans-Christoph Steiner and Mike Moser-Booth;
-#X text 10 10 VERSION 0.1;
+#X text 10 10 VERSION 0.2;
 #X text 10 70 LICENSE Pd BSD-style;
 #X restore 10 10 pd META;
