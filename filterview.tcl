@@ -484,6 +484,7 @@ proc filterview::moveband {my x} {
 
 proc filterview::movegain {my y} {
     variable ${my}::tkcanvas
+    variable ${my}::tag
     variable ${my}::previousy
     variable ${my}::framex1
     variable ${my}::framey1
@@ -499,7 +500,7 @@ proc filterview::movegain {my y} {
     } else {
         set filtergain $gainy
     }
-    $tkcanvas coords filtergain $framex1 $filtergain $framex2 $filtergain
+    $tkcanvas coords gain$tag $framex1 $filtergain $framex2 $filtergain
     set previousy $y
 }
 
@@ -799,9 +800,9 @@ proc filterview::setfiltertype {my filtertype} {
     if {[lsearch -exact $filters_with_gain $filtertype] > -1} {
         $tkcanvas create line $framex1 $filtergain $framex2 $filtergain \
             -fill $mutedline_color \
-            -tags [list $tag lines$tag filtergain]
+            -tags [list $tag lines$tag gain$tag]
     } else {
-        $tkcanvas delete filtergain
+        $tkcanvas delete gain$tag
     }
     update_coefficients $my
 }
