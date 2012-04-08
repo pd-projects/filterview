@@ -2,9 +2,7 @@
 # This line continues for Tcl, but is a single line for 'sh' \
     exec /usr/bin/wish "$0" -- ${1+"$@"}
 
-# TODO accept biquad lists on the inlet
 # TODO handle changes in samplerate using [block~]
-# TODO make Tk tags local to each instance...
 
 #------------- .mmb edits ----------------
 #
@@ -605,6 +603,7 @@ proc filterview::changebandwidth {my x y} {
     }
     set filterwidth [expr $filterx2 - $filterx1]
     set filtercenter [expr $filterx1 + ($filterwidth/2)]
+
     $tkcanvas coords bandleft$tag $filterx1 $framey1  $filterx1 $framey2
     $tkcanvas coords bandcenter$tag $filtercenter $framey1  $filtercenter $framey2
     $tkcanvas coords bandright$tag $filterx2 $framey1  $filterx2 $framey2
@@ -731,14 +730,13 @@ proc filterview::set_for_editmode {mytoplevel} {
 
 #------------------------------------------------------------------------------#
 
-# sets up an instance of the class
-proc filterview::new {my canvas name t x1 y1 x2 y2} {
+# sets up an new instance of the class
+proc filterview::new {my canvas rname t x1 y1 x2 y2} {
     namespace eval $my {
-        #------------------------------
-        # per-instance variables
-        variable tag "tag"
-        variable tkcanvas ".tkcanvas"
-        variable receive_name "receive_name"
+        # init all here to make sure they are not blank
+        variable tag "tag"                   ;# unique ID for canvas elements
+        variable tkcanvas ".tkcanvas"        ;# Tk canvas this is drawn on
+        variable receive_name "receive_name" ;# Pd name to send callbacks to
 
         variable currentfiltertype "peaking"
 
@@ -752,16 +750,23 @@ proc filterview::new {my canvas name t x1 y1 x2 y2} {
         variable b1 0
         variable b2 0
     }
-    variable ${my}::tkcanvas $canvas
-    variable ${my}::receive_name $name
+
+    variable ${my}::receive_name $rname
     variable ${my}::tag $t
+
+    update $my $canvas $x1 $y1 $x2 $y2
+}
+
+# updates an existing instance when its about to be drawn again
+proc filterview::update {my canvas x1 y1 x2 y2} {
+    variable ${my}::tkcanvas $canvas
 
     # convert these all to floats so the math works properly
     variable ${my}::framex1 [expr $x1 * 1.0]
     variable ${my}::framey1 [expr $y1 * 1.0]
     variable ${my}::framex2 [expr $x2 * 1.0]
     variable ${my}::framey2 [expr $y2 * 1.0]
-    
+
     variable ${my}::midpoint [expr (($framey2 - $framey1) / 2) + $framey1]
     variable ${my}::hzperpixel [expr 20000.0 / ($framex2 - $framex1)]
     variable ${my}::magnatudeperpixel [expr 0.5 / ($framey2 - $framey1)]
@@ -769,6 +774,7 @@ proc filterview::new {my canvas name t x1 y1 x2 y2} {
     # TODO make these set by something else, saved state?
     variable ${my}::filterx1 [expr $framex1 + 120.0]
     variable ${my}::filterx2 [expr $framex1 + 180.0]
+    # TODO what about gain?
     
     variable ${my}::filtergain $midpoint
     variable ${my}::filterwidth [expr $filterx2 - $filterx1]
@@ -809,11 +815,17 @@ proc filterview::setfiltertype {my filtertype} {
     update_coefficients $my
 }
 
-proc filterview::drawme {my} {
+proc filterview::drawme {my canvas name t x1 y1 x2 y2 filtertype} {
+    # if the $my namespace already exists, that means we already
+    # have an instance active and setup.
+    if {[namespace exists $my]} {
+        update $my $canvas $x1 $y1 $x2 $y2
+    } else {
+        new $my $canvas $name $t $x1 $y1 $x2 $y2
+    }
     variable ${my}::tkcanvas
     variable ${my}::receive_name
     variable ${my}::tag
-    variable ${my}::currentfiltertype
     variable ${my}::framex1
     variable ${my}::framey1
     variable ${my}::framex2
@@ -878,7 +890,7 @@ proc filterview::drawme {my} {
         $framex2 $outlety $outletx $outlety $outletx $framey2 \
         -tags [list $tag nlet$tag]
 
-    setfiltertype $my $currentfiltertype
+    setfiltertype $my $filtertype
 
     # run to set things up
     stop_editing $my
@@ -936,10 +948,8 @@ proc filterview::setup {} {
         wm geometry . 400x400+500+40
         canvas $tkcanvas
         pack $tkcanvas -side left -expand 1 -fill both
-        filterview::new $my $tkcanvas FAKE_RECEIVE_NAME $tag 30.0 30.0 330.0 230.0
+        filterview::drawme $my $tkcanvas FAKE_RECEIVE_NAME $tag 30.0 30.0 330.0 230.0 "peaking"
         filterview::set_for_editmode .
-        filterview::setfiltertype $my "peaking"
-        filterview::drawme $my
     }
 }
 

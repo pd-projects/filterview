@@ -16,7 +16,7 @@ typedef struct filterview
 
     /* IDs for Tk widgets */
     t_symbol*   receive_name;  /* name to bind to to receive callbacks */
-    char        canvas_id[MAXPDSTRING];
+    char        tkcanvas[MAXPDSTRING];
     char        tag[MAXPDSTRING];
     char        my[MAXPDSTRING];
 
@@ -28,14 +28,6 @@ t_class *filterview_class;
 static t_widgetbehavior filterview_widgetbehavior;
 
 /* time to set up! */
-
-static void set_tkwidgets_ids(t_filterview* x, t_canvas* canvas)
-{
-    x->x_canvas = canvas;
-    snprintf(x->canvas_id, MAXPDSTRING, ".x%lx.c", (long unsigned int) canvas);
-    snprintf(x->tag, MAXPDSTRING, "T%lx", (long unsigned int)x);
-    snprintf(x->my, MAXPDSTRING, "::N%lx", (long unsigned int)x);
-}
 
 static void filterview_biquad_callback(t_filterview *x, t_symbol *s, int argc, t_atom* argv)
 {
@@ -63,8 +55,8 @@ static void filterview_displace(t_gobj *z, t_glist *glist, int dx, int dy)
     if (glist_isvisible(glist))
     {
         sys_vgui("%s move %s %d %d\n",
-                 x->canvas_id, x->tag, dx, dy);
-        sys_vgui("%s move RSZ %d %d\n", x->canvas_id, dx, dy);
+                 x->tkcanvas, x->tag, dx, dy);
+        sys_vgui("%s move RSZ %d %d\n", x->tkcanvas, dx, dy);
         canvas_fixlinesfor(glist_getcanvas(glist), (t_text*) x);
     }
 }
@@ -85,15 +77,15 @@ static void filterview_vis(t_gobj *z, t_glist *glist, int vis)
     t_filterview* x = (t_filterview*)z;
     if (vis)
     {
-        set_tkwidgets_ids(x, glist_getcanvas(glist));
-        sys_vgui("filterview::new %s %s %s %s %d %d %d %d\n",
-                 x->my, x->canvas_id, x->receive_name->s_name, x->tag,
+        x->x_canvas = glist_getcanvas(glist);
+        snprintf(x->tkcanvas, MAXPDSTRING, ".x%lx.c", (long unsigned int) x->x_canvas);
+        sys_vgui("filterview::drawme %s %s %s %s %d %d %d %d %s\n",
+                 x->my, x->tkcanvas, x->receive_name->s_name, x->tag,
                  text_xpix(&x->x_obj, glist),
                  text_ypix(&x->x_obj, glist),
                  text_xpix(&x->x_obj, glist)+x->width,
-                 text_ypix(&x->x_obj, glist)+x->height);
-        sys_vgui("filterview::setfiltertype %s %s\n", x->my, x->filtertype->s_name);
-        sys_vgui("filterview::drawme %s\n", x->my);
+                 text_ypix(&x->x_obj, glist)+x->height,
+                 x->filtertype->s_name);
     }
     else
     {
@@ -195,6 +187,9 @@ static void *filterview_new(t_symbol* s)
     x->height = 200;
     x->filtertype = gensym("peaking");
     x->x_glist = canvas_getcurrent();
+
+    snprintf(x->tag, MAXPDSTRING, "T%lx", (long unsigned int)x);
+    snprintf(x->my, MAXPDSTRING, "::N%lx", (long unsigned int)x);
 
     sprintf(buf, "#R%lx", (long unsigned int)x);
     x->receive_name = gensym(buf);
