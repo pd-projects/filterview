@@ -328,7 +328,7 @@ proc filterview::peaking {my f0pix bwpix} {
     set bw [expr ($bwf/$f)-1]
     set omega [e_omega $f $::samplerate]
     set alpha [e_alpha $bw $omega]
-    set amp [expr pow(10.0, (-1.0*(($filtergain-$framey1)/($framey2-$framey1)*50.0-25.0))/40.0)]
+    set amp [expr pow(10.0, (-1.0*(($filtergain)/($framey2-$framey1)*50.0-25.0))/40.0)]
     set alphamulamp [expr $alpha*$amp]
     set alphadivamp [expr $alpha/$amp]
     set b1 [expr -2.0*cos($omega)]
@@ -356,7 +356,7 @@ proc filterview::lowshelf {my f0pix bwpix} {
     set nn [expr ($f0pix - $framex1)/($framex2-$framex1)*120+16.766]
     set f [mtof $nn]
     set bw [expr $bwpix / 100.0]
-    set amp [expr pow(10.0, (-1.0*(($filtergain-$framey1)/($framey2-$framey1)*50.0-25.0))/40.0)]
+    set amp [expr pow(10.0, (-1.0*(($filtergain)/($framey2-$framey1)*50.0-25.0))/40.0)]
     set omega [e_omega $f $::samplerate]
     set alpha [e_alpha $bw $omega]
     
@@ -393,7 +393,7 @@ proc filterview::highshelf {my f0pix bwpix} {
     set f [mtof $nn]
     set bwf [mtof $nn2]
     set bw [expr ($bwf/$f)-1]
-    set amp [expr pow(10.0, (-1.0*(($filtergain-$framey1)/($framey2-$framey1)*50.0-25.0))/40.0)]
+    set amp [expr pow(10.0, (-1.0*(($filtergain)/($framey2-$framey1)*50.0-25.0))/40.0)]
     set omega [e_omega $f $::samplerate]
     set alpha [e_alpha $bw $omega]
     
@@ -488,17 +488,21 @@ proc filterview::movegain {my y} {
     variable ${my}::framey1
     variable ${my}::framex2
     variable ${my}::framey2
+    variable ${my}::gainy
     variable ${my}::filtergain
 
-    set gainy [expr $filtergain + $y - $previousy]
-    if {[expr $gainy < $framey1]} {
-        set filtergain $framey1
-    } elseif {[expr $gainy > $framey2]} {
-        set filtergain $framey2
+    set gain [expr $filtergain + $y - $previousy]
+    set framemax [expr $framey2 - $framey1]
+    if {[expr $gain < 0]} {
+        set filtergain 0
+    } elseif {[expr $gain > $framemax]} {
+        set filtergain $framemax
     } else {
-        set filtergain $gainy
+        set filtergain $gain
     }
-    $tkcanvas coords gain$tag $framex1 $filtergain $framex2 $filtergain
+
+    set gainy [expr $framey1 + $filtergain]
+    $tkcanvas coords gain$tag $framex1 $gainy $framex2 $gainy
     set previousy $y
 }
 
@@ -743,6 +747,8 @@ proc filterview::new {my canvas rname t x1 y1 x2 y2} {
         variable previousx 0
         variable previousy 0
 
+        variable filtergain 100 ;# the unit is pixels, 0-200, 100 means no gain
+
         # coefficients for [biquad~]
         variable a1 0
         variable a2 0
@@ -760,6 +766,7 @@ proc filterview::new {my canvas rname t x1 y1 x2 y2} {
 # updates an existing instance when its about to be drawn again
 proc filterview::update {my canvas x1 y1 x2 y2} {
     variable ${my}::tkcanvas $canvas
+    variable ${my}::filtergain
 
     # convert these all to floats so the math works properly
     variable ${my}::framex1 [expr $x1 * 1.0]
@@ -771,12 +778,11 @@ proc filterview::update {my canvas x1 y1 x2 y2} {
     variable ${my}::hzperpixel [expr 20000.0 / ($framex2 - $framex1)]
     variable ${my}::magnatudeperpixel [expr 0.5 / ($framey2 - $framey1)]
 
+    variable ${my}::gainy [expr $framey1 + $filtergain]
     # TODO make these set by something else, saved state?
     variable ${my}::filterx1 [expr $framex1 + 120.0]
     variable ${my}::filterx2 [expr $framex1 + 180.0]
-    # TODO what about gain?
-    
-    variable ${my}::filtergain $midpoint
+
     variable ${my}::filterwidth [expr $filterx2 - $filterx1]
     variable ${my}::filtercenter [expr $filterx1 + ($filterwidth/2)]
 }
@@ -796,7 +802,7 @@ proc filterview::setfiltertype {my filtertype} {
     variable ${my}::currentfiltertype $filtertype
     variable ${my}::framex1
     variable ${my}::framex2
-    variable ${my}::filtergain
+    variable ${my}::gainy
     variable filters_with_gain
     variable mutedlinecolor
 
@@ -806,7 +812,7 @@ proc filterview::setfiltertype {my filtertype} {
     if {[lsearch -exact $filters_with_gain $filtertype] > -1} {
         # if any gain lines exist from before, delete first
         $tkcanvas delete gain$tag
-        $tkcanvas create line $framex1 $filtergain $framex2 $filtergain \
+        $tkcanvas create line $framex1 $gainy $framex2 $gainy \
             -fill $mutedlinecolor \
             -tags [list $tag lines$tag gain$tag]
     } else {
